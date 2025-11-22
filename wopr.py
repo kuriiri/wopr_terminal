@@ -29,7 +29,7 @@ with open(os.path.join(HERE, "config.json")) as f:
 
 UPDATE_INTERVAL = cfg.get("update_interval_sec", 20)
 # 0 = HSL, 1 = Flights, 2 = extended weather
-#show_flights = False 
+#show_flights = False
 current_view = 0
 
 
@@ -100,14 +100,6 @@ def updater_loop():
                 cfg.get("weather_city", "Vantaa")
             )
 
-            # compute trend based on previous temperature
-            try:
-                with lock:
-                    prev_temp = state.get("weather", {}).get("temp")
-            except Exception:
-                prev_temp = None
-
-            trend_char = ""
             # track temperature history
             new_temp = w.get("temp")
             if isinstance(new_temp, (int, float)):
@@ -133,8 +125,7 @@ def updater_loop():
         # ---------- HSL BUS TIMES ----------
         # Slower interval when backlight is OFF
         this_hsl_interval = hsl_interval if backlight_on else hsl_interval_off
-        #if now - last_hsl >= this_hsl_interval or (backlight_on and force_refresh):
-        if (now - last_hsl >= (hsl_interval if backlight_on else hsl_interval_off)) or force_refresh or initial_refresh:
+        if (now - last_hsl >= this_hsl_interval) or force_refresh or initial_refresh:
             b1 = get_stop_times(cfg.get("hsl_key"), cfg.get("hsl_stop_city"))
             b2 = get_stop_times(cfg.get("hsl_key"), cfg.get("hsl_stop_airport"))
             with lock:
@@ -208,12 +199,12 @@ def draw_weather_ext_view():
     """Extended weather view"""
     with lock:
         weather = state["weather"]
-    
+
     city_name = cfg.get("weather_city", "Vantaa").upper()
 
     temp = weather.get("temp")
     trend = weather.get("trend", "")
-    feels = weather.get("feels_like", "None")
+    feels = weather.get("feels_like", None)
     pressure = weather.get("pressure", "")
     humidity = weather.get("humidity", "")
     clouds = weather.get("clouds", "")
@@ -409,12 +400,9 @@ else:
     set_backlight(True)
 
 force_refresh = True   # immediate data sync once
-initial_refresh = True
-
 
 # main loop
 clock = pygame.time.Clock()
-flicker_phase = 0
 
 # Double-tap detection
 DOUBLE_TAP_TIME = 400  # ms
@@ -428,7 +416,7 @@ while True:
     now_ticks = pygame.time.get_ticks()
 
     for ev in pygame.event.get():
-        ## DEBUG 
+        ## DEBUG
         # print(ev)
 
         # Convert touchscreen FINGERDOWN into synthetic mouse click
@@ -486,20 +474,21 @@ while True:
     # ---- Backlight scheduling / timeout ----
     if in_on_window():
         # During scheduled windows → ensure backlight ON
-        set_backlight(True)
-    else:
-        # Outside windows → auto-off after inactivity
-        if now_ticks - last_activity > BACKLIGHT_TIMEOUT:
-            set_backlight(False)
-        else:
+        if not backlight_on:
             set_backlight(True)
+    else:
+        idle_ms = now_ticks - last_activity
+        # Outside windows → auto-off after inactivity
+        if backlight_on and idle_ms > BACKLIGHT_TIMEOUT:
+            set_backlight(False)
 
     # If backlight is OFF, we still spin but skip drawing heavy stuff
     if not backlight_on:
-        screen.fill(BLACK)
-        pygame.display.flip()
-        clock.tick(10)
-        continue
+        if now_ticks - last_activity > 250:
+            screen.fill(BLACK)
+            pygame.display.flip()
+            clock.tick(10)
+            continue
 
     # Normal drawing when backlight is ON and not in greeting
     screen.fill(BLACK)
@@ -536,7 +525,6 @@ while True:
     if ws not in (None, "", "ERR") and wd:
         wind_str = f"{ws}m/s {wd}"
 
-    city_name = cfg.get("weather_city", "WEATHER")
     wtxt = f"{city_name.upper()}: {temp_str}  {desc}  {wind_str}"
     draw_text(wtxt, 20, 20, big_font)
 
