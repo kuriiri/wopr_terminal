@@ -71,7 +71,7 @@ HEL / EFHK Departures:
 During these times → always ON.
 Outside → turns OFF after inactivity timeout (default 20 min).
 
-Touch once → wakes screen + shows greeting.
+Touch once → wakes screen
 
 ## 🛠️ Hardware Requirements
 
