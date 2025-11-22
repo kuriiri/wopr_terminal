@@ -475,13 +475,11 @@ while True:
     if in_on_window():
         # During scheduled windows → ensure backlight ON
         if not backlight_on:
-            print("Scheduled ON")
             set_backlight(True)
     else:
         idle_ms = now_ticks - last_activity
         # Outside windows → auto-off after inactivity
         if backlight_on and idle_ms > BACKLIGHT_TIMEOUT:
-            print("*** BACKLIGHT TIMEOUT ***")
             set_backlight(False)
 
     # If backlight is OFF, we still spin but skip drawing heavy stuff
