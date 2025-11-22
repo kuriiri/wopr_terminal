@@ -1,0 +1,14 @@
+[Unit]
+Description=WOPR Terminal Display
+After=network-online.target
+
+[Service]
+User=pi
+Group=pi
+Type=simple
+Restart=on-failure
+ExecStart=/usr/bin/python3 /home/pi/wopr-display/wopr.py
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
