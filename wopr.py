@@ -508,7 +508,7 @@ while True:
     draw_text(wtxt, 20, 20, big_font)
 
 
-    if current-view == 0:
+    if current_view == 0:
         # =====================
         #   HSL BUS VIEW (table)
         # =====================
