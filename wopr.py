@@ -15,7 +15,7 @@ import pygame
 import time
 import json
 import threading
-import datetime  # NEW
+import datetime
 
 from modules.weather import get_weather
 from modules.hsl import get_stop_times
@@ -28,7 +28,10 @@ with open(os.path.join(HERE, "config.json")) as f:
     cfg = json.load(f)
 
 UPDATE_INTERVAL = cfg.get("update_interval_sec", 20)
-show_flights = False
+# 0 = HSL, 1 = Flights, 2 = extended weather
+#show_flights = False 
+current_view = 0
+
 
 # Pygame init
 pygame.init()
@@ -92,7 +95,10 @@ def updater_loop():
 
         # ---------- WEATHER (only when screen ON, or forced) ----------
         if backlight_on and (now - last_weather >= weather_interval or force_refresh or initial_refresh):
-            w = get_weather(cfg.get("openweather_key"))
+            w = get_weather(
+                cfg.get("openweather_key"),
+                cfg.get("weather_city", "Vantaa")
+            )
 
             # compute trend based on previous temperature
             try:
@@ -156,9 +162,6 @@ def updater_loop():
 
         time.sleep(1)
 
-
-        time.sleep(1)
-
 # start updater thread
 t = threading.Thread(target=updater_loop, daemon=True)
 t.start()
@@ -171,6 +174,115 @@ def draw_text(text, x, y, fnt=base_font, color=GREEN):
 def draw_scanlines():
     for y in range(0, HEIGHT, 2):
         pygame.draw.line(screen, DIM_GREEN, (0, y), (WIDTH, y), 1)
+
+def draw_weather_ext_view():
+    """Extended weather view (not implemented yet)."""
+    with lock:
+        weather = state["weather"]
+    
+    city_name = cfg.get("weather_city", "Vantaa").upper()
+
+    temp = weather.get("temp ")
+    trend = weather.get("trend", "")
+    feels = weather.get("feels_like", "None") # add later
+    pressure = weather.get("pressure", "")
+    humidity = weather.get("humidity", "")
+    clouds = weather.get("clouds", "")
+    vis_km = weather.get("visibility_km", "")
+    ws = weather.get("wind_speed", "")
+    wd = weather.get("wind_dir", "")
+    sunrise = weather.get("sunrise", "")
+    sunset = weather.get("sunset", "")
+    ts = weather.get("timestamp", None)
+
+    # Data age (minutes)
+    if isinstance(ts, (int, float)):
+        age_min = int((time.time() - ts) / 60)
+        age_str = f"{age_min} MIN"
+    else:
+        age_str = "N/A"
+
+    # Temperature string with trend
+    if isinstance(temp, (int, float)):
+        temp_str = f"{temp}°C"
+    else:
+        temp_str = str(temp)
+
+    if trend:
+        temp_str = f"{temp_str} {trend}"
+
+    # Feels like (optional; if not present, we skip line)
+    feels_str = ""
+    if isinstance(feels, (int, float)):
+        feels_str = f"{feels}°C"
+
+    # Clear screen area & title
+    draw_text(f"WEATHER SYSTEM STATUS - {city_name}", 20, 70, big_font, GREEN)
+
+    y = 110
+    line_h = 26
+
+    # TEMP
+    draw_text("TEMP:",       20, y, base_font, GREEN)
+    draw_text(temp_str,     180, y, base_font, GREEN)
+    y += line_h
+
+    # FEELS LIKE (only if available)
+    if feels_str:
+        draw_text("FEELS LIKE:", 20, y, base_font, GREEN)
+        draw_text(feels_str,   180, y, base_font, GREEN)
+        y += line_h
+
+    # PRESSURE
+    if pressure not in ("", None):
+        draw_text("PRESSURE:",  20, y, base_font, GREEN)
+        draw_text(f"{pressure} hPa", 180, y, base_font, GREEN)
+        y += line_h
+
+    # HUMIDITY
+    if humidity not in ("", None):
+        draw_text("HUMIDITY:",  20, y, base_font, GREEN)
+        draw_text(f"{humidity} %", 180, y, base_font, GREEN)
+        y += line_h
+
+    # CLOUD COVER
+    if clouds not in ("", None):
+        draw_text("CLOUD COVER:", 20, y, base_font, GREEN)
+        draw_text(f"{clouds} %",  180, y, base_font, GREEN)
+        y += line_h
+
+    # VISIBILITY (KM)
+    if isinstance(vis_km, (int, float)):
+        draw_text("VISIBILITY:", 20, y, base_font, GREEN)
+        draw_text(f"{vis_km} KM", 180, y, base_font, GREEN)
+        y += line_h
+
+    # WIND SPEED
+    if ws not in ("", None, "ERR"):
+        draw_text("WIND SPEED:", 20, y, base_font, GREEN)
+        draw_text(f"{ws} m/s",  180, y, base_font, GREEN)
+        y += line_h
+
+    # WIND DIRECTION
+    if wd not in ("", None):
+        draw_text("WIND DIR:", 20, y, base_font, GREEN)
+        draw_text(wd,          180, y, base_font, GREEN)
+        y += line_h
+
+    # SUNRISE / SUNSET
+    if sunrise:
+        draw_text("SUNRISE:",  20, y, base_font, GREEN)
+        draw_text(sunrise,    180, y, base_font, GREEN)
+        y += line_h
+
+    if sunset:
+        draw_text("SUNSET:",   20, y, base_font, GREEN)
+        draw_text(sunset,     180, y, base_font, GREEN)
+        y += line_h
+
+    # DATA AGE
+    draw_text("DATA AGE:",    20, y, base_font, GREEN)
+    draw_text(age_str,      180, y, base_font, GREEN)
 
 # -------- BACKLIGHT / TIME WINDOW HELPERS --------
 
@@ -334,7 +446,8 @@ while True:
             last_tap_time = now_ticks
 
             if tap_count >= 2:
-                show_flights = not show_flights
+                current_view = (current_view +1 ) % 3 # 3 views: HSL, Flights, WX extended
+                #show_flights = not show_flights
                 tap_count = 0
 
     # ---- Backlight scheduling / timeout ----
@@ -369,6 +482,7 @@ while True:
     with lock:
         weather = state["weather"]
 
+    city_name = cfg.get("weather_city", "Vantaa")
     temp = weather.get("temp")
     trend = weather.get("trend", "")
     desc = weather.get("desc", "")
@@ -386,17 +500,15 @@ while True:
 
     # wind string
     wind_str = ""
-    if ws not in (None, "", "ERR") and wd not in (None, ""):
+    if ws not in (None, "", "ERR") and wd:
         wind_str = f"{ws}m/s {wd}"
 
     city_name = cfg.get("weather_city", "WEATHER")
     wtxt = f"{city_name.upper()}: {temp_str}  {desc}  {wind_str}"
-
-
     draw_text(wtxt, 20, 20, big_font)
 
 
-    if not show_flights:
+    if current-view == 0:
         # =====================
         #   HSL BUS VIEW (table)
         # =====================
@@ -486,7 +598,7 @@ while True:
 
                     y += 26
 
-    else:
+    elif current_view == 1:
         # =====================
         #   FLIGHT BOARD VIEW
         # =====================
@@ -538,6 +650,12 @@ while True:
                 draw_text(str(flight), 20, y, base_font, GREEN)
 
             y += 26
+
+    elif current_view == 2:
+        # =====================
+        #   EXTENDED WEATHER VIEW
+        # =====================
+        draw_weather_ext_view()
 
     if cfg.get("show_scanlines", True):
         draw_scanlines()
