@@ -175,6 +175,35 @@ def draw_scanlines():
     for y in range(0, HEIGHT, 2):
         pygame.draw.line(screen, DIM_GREEN, (0, y), (WIDTH, y), 1)
 
+def time_delta_str(event_time):
+    """Return mission-style time delta string such as:
+       '12h 55m REMAINING' or '2h 10m AGO'
+    """
+    if not event_time:
+        return ""
+
+    try:
+        # event_time is HH:MM
+        now = time.localtime()
+        today_str = time.strftime("%d.%m.%Y", now)
+        event_str = f"{today_str} {event_time}"
+
+        event_struct = time.strptime(event_str, "%d.%m.%Y %H:%M")
+        event_ts = time.mktime(event_struct)
+        now_ts = time.time()
+
+        delta = event_ts - now_ts
+        mins = int(abs(delta) // 60)
+        hrs = mins // 60
+        mins = mins % 60
+
+        if delta >= 0:
+            return f"({hrs}h {mins}m REMAINING)"
+        else:
+            return f"({hrs}h {mins}m AGO)"
+    except:
+        return ""
+
 def draw_weather_ext_view():
     """Extended weather view"""
     with lock:
@@ -271,18 +300,22 @@ def draw_weather_ext_view():
 
     # SUNRISE / SUNSET
     if sunrise:
-        draw_text("SUNRISE:",  20, y, base_font, GREEN)
-        draw_text(sunrise,    180, y, base_font, GREEN)
+        draw_text("SUNRISE:", 20, y, base_font, GREEN)
+        delta = time_delta_str(sunrise)
+        draw_text(f"{sunrise}  {delta}", 180, y, base_font, GREEN)
         y += line_h
 
+    # SUNSET
     if sunset:
-        draw_text("SUNSET:",   20, y, base_font, GREEN)
-        draw_text(sunset,     180, y, base_font, GREEN)
+        draw_text("SUNSET:", 20, y, base_font, GREEN)
+        delta = time_delta_str(sunset)
+        draw_text(f"{sunset}  {delta}", 180, y, base_font, GREEN)
         y += line_h
 
     # DATA AGE
     draw_text("DATA AGE:",    20, y, base_font, GREEN)
     draw_text(age_str,      180, y, base_font, GREEN)
+
 
 # -------- BACKLIGHT / TIME WINDOW HELPERS --------
 
