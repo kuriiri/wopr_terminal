@@ -176,13 +176,13 @@ def draw_scanlines():
         pygame.draw.line(screen, DIM_GREEN, (0, y), (WIDTH, y), 1)
 
 def draw_weather_ext_view():
-    """Extended weather view (not implemented yet)."""
+    """Extended weather view"""
     with lock:
         weather = state["weather"]
     
     city_name = cfg.get("weather_city", "Vantaa").upper()
 
-    temp = weather.get("temp ")
+    temp = weather.get("temp")
     trend = weather.get("trend", "")
     feels = weather.get("feels_like", "None")
     pressure = weather.get("pressure", "")
@@ -493,7 +493,7 @@ while True:
     if isinstance(temp, (int, float)):
         temp_str = f"{temp}°C"
     else:
-        temp_str = f"{temp}°C" if temp not in (None, "") else "N/A"
+        temp_str = str(temp)
 
     if trend:
         temp_str = f"{temp_str} {trend}"
