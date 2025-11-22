@@ -15,6 +15,7 @@ def get_weather(api_key, city="Vantaa"):
             "sunrise": "",
             "sunset": "",
             "timestamp": None,
+            "feels_like": ""   
         }
 
     try:
@@ -32,6 +33,7 @@ def get_weather(api_key, city="Vantaa"):
         sys = data.get("sys", {})
 
         temp = round(main.get("temp", 0.0), 1)
+        feels = round(main.get("feels_like", temp), 1)
         desc = data["weather"][0]["description"].upper()
 
         for word in ["CLOUDS", "CLOUD", "LIGHT", "MODERATE", "INTENSITY"]:
@@ -66,6 +68,7 @@ def get_weather(api_key, city="Vantaa"):
 
         return {
             "temp": temp,
+            "feels_like": feels,
             "desc": desc,
             "wind_speed": wind_speed,
             "wind_dir": wind_dir,
@@ -81,6 +84,7 @@ def get_weather(api_key, city="Vantaa"):
     except Exception as e:
         return {
             "temp": "ERR",
+            "feels_like": "ERR",
             "desc": str(e),
             "wind_speed": "",
             "wind_dir": "",

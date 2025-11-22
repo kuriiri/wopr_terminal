@@ -184,7 +184,7 @@ def draw_weather_ext_view():
 
     temp = weather.get("temp ")
     trend = weather.get("trend", "")
-    feels = weather.get("feels_like", "None") # add later
+    feels = weather.get("feels_like", "None")
     pressure = weather.get("pressure", "")
     humidity = weather.get("humidity", "")
     clouds = weather.get("clouds", "")
