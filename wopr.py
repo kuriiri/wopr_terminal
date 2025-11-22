@@ -206,7 +206,7 @@ def draw_weather_ext_view():
     if isinstance(temp, (int, float)):
         temp_str = f"{temp}°C"
     else:
-        temp_str = str(temp)
+        temp_str = f"{temp}°C" if temp not in (None, "") else "N/A"
 
     if trend:
         temp_str = f"{temp_str} {trend}"
