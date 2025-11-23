@@ -20,6 +20,7 @@ import datetime
 from modules.weather import get_weather
 from modules.hsl import get_stop_times
 from modules.flights import get_flights
+from modules.fmi import get_pedestrian_warning
 from collections import deque
 
 # load config
@@ -69,6 +70,7 @@ last_temps = deque(maxlen=12)
 # state
 state = {
     "weather": {"temp": "N/A", "desc": ""},
+    "ped_warning": None,
     "buses_city": ["Loading..."],
     "buses_airport": ["Loading..."],
     "flights": ["Loading..."]
@@ -99,6 +101,7 @@ def updater_loop():
                 cfg.get("openweather_key"),
                 cfg.get("weather_city", "Vantaa")
             )
+            p = get_pedestrian_warning()
 
             # track temperature history
             new_temp = w.get("temp")
@@ -119,6 +122,7 @@ def updater_loop():
 
             with lock:
                 state["weather"] = w
+                state["ped_warning"] = p
 
             last_weather = now
 
@@ -494,39 +498,44 @@ while True:
     screen.fill(BLACK)
 
     # TIME top-right (always visible)
-    now_tm = time.localtime()
-    dt_str = time.strftime("%d.%m.%Y %H:%M:%S", now_tm)
+    now = time.localtime()
+    dt_str = time.strftime("%d.%m.%Y %H:%M:%S", now)
     clock_text = base_font.render(dt_str, True, GREEN)
     rect = clock_text.get_rect(topright=(WIDTH - 20, 10))
     screen.blit(clock_text, rect)
 
-    # WEATHER (always visible)
+    # WEATHER (always visible - now with hazard awareness)
     with lock:
         weather = state["weather"]
+        ped = state.get("ped_warning")
 
-    city_name = cfg.get("weather_city", "Vantaa")
-    temp = weather.get("temp")
-    trend = weather.get("trend", "")
+    temp = weather.get("temp", "N/A")
     desc = weather.get("desc", "")
-    ws = weather.get("wind_speed", "")
-    wd = weather.get("wind_dir", "")
+    trend = weather.get("trend", "")
 
-    # temperature string
-    if isinstance(temp, (int, float)):
-        temp_str = f"{temp}°C"
+    # Build base weather string
+    weather_base = f"{temp}°C {trend}  —  {desc}"
+
+    # If hazard exists, append with color and spacing
+    if ped and isinstance(ped, dict) and ped.get("type"):
+        hazard = ped.get("type")
+        until = ped.get("until")
+
+        if until:
+            hazard += f" (until {until})"
+
+        # First draw weather base text in GREEN
+        draw_text(weather_base, 20, 40, big_font, GREEN)
+
+        # Draw hazard text after base text, with tactical spacing
+        base_width, _ = big_font.size(weather_base + "   ")
+        color = RED if ped.get("level") == "DANGER" else YELLOW
+        draw_text(hazard, 20 + base_width, 40, big_font, color)
+
     else:
-        temp_str = str(temp)
-
-    if trend:
-        temp_str = f"{temp_str} {trend}"
-
-    # wind string
-    wind_str = ""
-    if ws not in (None, "", "ERR") and wd:
-        wind_str = f"{ws}m/s {wd}"
-
-    wtxt = f"{city_name.upper()}: {temp_str}  {desc}  {wind_str}"
-    draw_text(wtxt, 20, 20, big_font)
+        # No hazard → draw full weather as one string
+        draw_text(weather_base, 20, 40, big_font, GREEN)
+    
 
 
     if current_view == 0:
