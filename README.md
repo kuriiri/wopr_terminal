@@ -1,14 +1,16 @@
 # 🖥️ WOPR Display Terminal
 
 *A Raspberry Pi–powered tactical display inspired by **Wargames (1983)**.*
-Live bus departures, airport flight status, and real-time weather — rendered in glorious green phosphor terminal style.
+Live bus departures, airport flight status, real-time weather and tactical weather intelligence. — rendered in glorious green phosphor terminal style.
 
-“**Would you like to play a game?**”
+![WOPR](https://img.shields.io/badge/WOPR-System%20Online-green?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%203/4-red)
 
 ## ✨ Features
 
+🔥 **Real-time situational awareness** for the modern civilian bunker:
 
-* Live local time (WOPR green terminal style)                    
 * Live OpenWeatherMap data w/ wind + weather trend arrows        
 * HSL real-time bus departures from two stops (city + airport)   
 * Finavia API: live flight departures (with delay/cancel colors) 
@@ -98,6 +100,7 @@ Example:
   "hsl_stop_city": "HSL_STOP_ID",
   "hsl_stop_airport": "HSL_STOP_ID",
   "finavia_key": "YOUR_FINAVIA_API_KEY",
+  "fmi_areacode": "FI-18",
 
   "update_weather_sec": 300,
   "update_hsl_sec": 40,
@@ -110,6 +113,7 @@ Example:
   "backlight_timeout_sec": 1200
 }
 ```` 
+Get your fmi_areacode from: https://fi.wikipedia.org/wiki/ISO_3166-2:FI
 
 ## 🚀 Install & Run
 
@@ -128,7 +132,6 @@ sudo systemctl enable --now wopr.service
 ```
 
 
-
 ## 🙌 Credits
 
 This project exists thanks to:
@@ -137,3 +140,11 @@ This project exists thanks to:
 * **Digitransit HSL Routing API**
 * **Finavia Flights API**
 * **Wargames (1983)** for inspiration
+
+## 📜 License 
+
+Copyright (c) 2025 kuriiri
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction...
