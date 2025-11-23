@@ -28,9 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(HERE, "config.json")) as f:
     cfg = json.load(f)
 
-UPDATE_INTERVAL = cfg.get("update_interval_sec", 20)
 # 0 = HSL, 1 = Flights, 2 = extended weather
-#show_flights = False
 current_view = 0
 
 
@@ -551,8 +549,6 @@ while True:
         if wind_speed:
             if details:
                 details += "  "
-
-            wind_dir = weather.get("wind_dir", "")
 
             if wind_dir:
                 details += f"{wind_speed} m/s {wind_dir}"
