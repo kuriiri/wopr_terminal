@@ -69,7 +69,7 @@ last_temps = deque(maxlen=12)
 
 # state
 state = {
-    "weather": {"temp": "N/A", "desc": ""},
+    "weather": {"temp": "N/A", "desc": "", "trend": "", "wind_speed": "", "wind_dir": None},
     "ped_warning": None,
     "buses_city": ["Loading..."],
     "buses_airport": ["Loading..."],
@@ -101,7 +101,7 @@ def updater_loop():
                 cfg.get("openweather_key"),
                 cfg.get("weather_city", "Vantaa")
             )
-            p = get_pedestrian_warning()
+            p = get_pedestrian_warning(cfg.get("fmi_areacode", "FI-18"))
 
             # track temperature history
             new_temp = w.get("temp")
@@ -509,32 +509,58 @@ while True:
         weather = state["weather"]
         ped = state.get("ped_warning")
 
+    city = cfg.get("weather_city", "Vantaa").upper()
     temp = weather.get("temp", "N/A")
     desc = weather.get("desc", "")
     trend = weather.get("trend", "")
+    wind_speed = weather.get("wind_speed", "")
+    wind_dir = weather.get("wind_dir", "")  
 
     # Build base weather string
-    weather_base = f"{temp}°C {trend}  —  {desc}"
+    weather_base = f"{city}: {temp}°C {trend}"
 
-    # If hazard exists, append with color and spacing
+    # Draw base (green)
+    draw_text(weather_base, 20, 40, big_font, GREEN)
+    cursor_x = 20 + big_font.size(weather_base + "   ")[0]
+
     if ped and isinstance(ped, dict) and ped.get("type"):
+        # PEDESTRIAN WARNING ACTIVE
         hazard = ped.get("type")
         until = ped.get("until")
-
         if until:
-            hazard += f" (until {until})"
+            hazard += f" UNTL {until}"
 
-        # First draw weather base text in GREEN
-        draw_text(weather_base, 20, 40, big_font, GREEN)
+        # Draw weather desc first if exists
+        if desc:
+            d = f"—  {desc}  "
+            draw_text(d, cursor_x, 40, big_font, GREEN)
+            cursor_x += big_font.size(d)[0]
 
-        # Draw hazard text after base text, with tactical spacing
-        base_width, _ = big_font.size(weather_base + "   ")
+        # Hazard section (colored severity only)
         color = RED if ped.get("level") == "DANGER" else YELLOW
-        draw_text(hazard, 20 + base_width, 40, big_font, color)
+        draw_text(hazard, cursor_x, 40, big_font, color)
 
     else:
-        # No hazard → draw full weather as one string
-        draw_text(weather_base, 20, 40, big_font, GREEN)
+        # NO PEDESTRIAN WARNING — include description + wind + direction
+        details = ""
+
+        if desc:
+            details += f"—  {desc}"
+
+        # Include windspeed info if present
+        if wind_speed:
+            if details:
+                details += "  "
+
+            wind_dir = weather.get("wind_dir", "")
+
+            if wind_dir:
+                details += f"{wind_speed} m/s {wind_dir}"
+            else:
+                details += f"{wind_speed} m/s"
+
+        if details:
+            draw_text(details, cursor_x, 40, big_font, GREEN)
     
 
 
