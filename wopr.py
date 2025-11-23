@@ -20,6 +20,7 @@ import datetime
 from modules.weather import get_weather
 from modules.hsl import get_stop_times
 from modules.flights import get_flights
+from modules.fmi import get_pedestrian_warning
 from collections import deque
 
 # load config
@@ -27,9 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(HERE, "config.json")) as f:
     cfg = json.load(f)
 
-UPDATE_INTERVAL = cfg.get("update_interval_sec", 20)
 # 0 = HSL, 1 = Flights, 2 = extended weather
-#show_flights = False
 current_view = 0
 
 
@@ -68,7 +67,8 @@ last_temps = deque(maxlen=12)
 
 # state
 state = {
-    "weather": {"temp": "N/A", "desc": ""},
+    "weather": {"temp": "N/A", "desc": "", "trend": "", "wind_speed": "", "wind_dir": None},
+    "ped_warning": None,
     "buses_city": ["Loading..."],
     "buses_airport": ["Loading..."],
     "flights": ["Loading..."]
@@ -99,6 +99,7 @@ def updater_loop():
                 cfg.get("openweather_key"),
                 cfg.get("weather_city", "Vantaa")
             )
+            p = get_pedestrian_warning(cfg.get("fmi_areacode", "FI-18"))
 
             # track temperature history
             new_temp = w.get("temp")
@@ -119,6 +120,7 @@ def updater_loop():
 
             with lock:
                 state["weather"] = w
+                state["ped_warning"] = p
 
             last_weather = now
 
@@ -494,39 +496,68 @@ while True:
     screen.fill(BLACK)
 
     # TIME top-right (always visible)
-    now_tm = time.localtime()
-    dt_str = time.strftime("%d.%m.%Y %H:%M:%S", now_tm)
+    now = time.localtime()
+    dt_str = time.strftime("%d.%m.%Y %H:%M:%S", now)
     clock_text = base_font.render(dt_str, True, GREEN)
     rect = clock_text.get_rect(topright=(WIDTH - 20, 10))
     screen.blit(clock_text, rect)
 
-    # WEATHER (always visible)
+    # WEATHER (always visible - now with hazard awareness)
     with lock:
         weather = state["weather"]
+        ped = state.get("ped_warning")
 
-    city_name = cfg.get("weather_city", "Vantaa")
-    temp = weather.get("temp")
-    trend = weather.get("trend", "")
+    city = cfg.get("weather_city", "Vantaa").upper()
+    temp = weather.get("temp", "N/A")
     desc = weather.get("desc", "")
-    ws = weather.get("wind_speed", "")
-    wd = weather.get("wind_dir", "")
+    trend = weather.get("trend", "")
+    wind_speed = weather.get("wind_speed", "")
+    wind_dir = weather.get("wind_dir", "")  
 
-    # temperature string
-    if isinstance(temp, (int, float)):
-        temp_str = f"{temp}°C"
+    # Build base weather string
+    weather_base = f"{city}: {temp}°C {trend}"
+
+    # Draw base (green)
+    draw_text(weather_base, 20, 40, big_font, GREEN)
+    cursor_x = 20 + big_font.size(weather_base + "   ")[0]
+
+    if ped and isinstance(ped, dict) and ped.get("type"):
+        # PEDESTRIAN WARNING ACTIVE
+        hazard = ped.get("type")
+        until = ped.get("until")
+        if until:
+            hazard += f" UNTL {until}"
+
+        # Draw weather desc first if exists
+        if desc:
+            d = f"—  {desc}  "
+            draw_text(d, cursor_x, 40, big_font, GREEN)
+            cursor_x += big_font.size(d)[0]
+
+        # Hazard section (colored severity only)
+        color = RED if ped.get("level") == "DANGER" else YELLOW
+        draw_text(hazard, cursor_x, 40, big_font, color)
+
     else:
-        temp_str = str(temp)
+        # NO PEDESTRIAN WARNING — include description + wind + direction
+        details = ""
 
-    if trend:
-        temp_str = f"{temp_str} {trend}"
+        if desc:
+            details += f"—  {desc}"
 
-    # wind string
-    wind_str = ""
-    if ws not in (None, "", "ERR") and wd:
-        wind_str = f"{ws}m/s {wd}"
+        # Include windspeed info if present
+        if wind_speed:
+            if details:
+                details += "  "
 
-    wtxt = f"{city_name.upper()}: {temp_str}  {desc}  {wind_str}"
-    draw_text(wtxt, 20, 20, big_font)
+            if wind_dir:
+                details += f"{wind_speed} m/s {wind_dir}"
+            else:
+                details += f"{wind_speed} m/s"
+
+        if details:
+            draw_text(details, cursor_x, 40, big_font, GREEN)
+    
 
 
     if current_view == 0:
