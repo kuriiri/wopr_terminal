@@ -11,7 +11,8 @@ Live bus departures, airport flight status, real-time weather and tactical weath
 
 🔥 **Real-time situational awareness** for the modern civilian bunker:
 
-* Live OpenWeatherMap data w/ wind + weather trend arrows        
+* Live OpenWeatherMap data w/ wind + weather trend arrows
+* FMI Pedestrian-safety warning
 * HSL real-time bus departures from two stops (city + airport)   
 * Finavia API: live flight departures (with delay/cancel colors) 
 * Touchscreen toggle between views (double-tap)                  
