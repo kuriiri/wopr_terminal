@@ -69,8 +69,8 @@ last_temps = deque(maxlen=12)
 state = {
     "weather": {"temp": "N/A", "desc": "", "trend": "", "wind_speed": "", "wind_dir": None},
     "ped_warning": None,
-    "buses_city": ["Loading..."],
-    "buses_airport": ["Loading..."],
+    "buses_stop_1": ["Loading..."],
+    "buses_stop_2": ["Loading..."],
     "flights": ["Loading..."]
 }
 
@@ -128,11 +128,11 @@ def updater_loop():
         # Slower interval when backlight is OFF
         this_hsl_interval = hsl_interval if backlight_on else hsl_interval_off
         if (now - last_hsl >= this_hsl_interval) or force_refresh or initial_refresh:
-            b1 = get_stop_times(cfg.get("hsl_key"), cfg.get("hsl_stop_city"))
-            b2 = get_stop_times(cfg.get("hsl_key"), cfg.get("hsl_stop_airport"))
+            b1 = get_stop_times(cfg.get("hsl_key"), cfg.get("hsl_stop_1"))
+            b2 = get_stop_times(cfg.get("hsl_key"), cfg.get("hsl_stop_2"))
             with lock:
-                state["buses_city"] = b1
-                state["buses_airport"] = b2
+                state["buses_stop_1"] = b1
+                state["buses_stop_2"] = b2
             last_hsl = now
 
         # ---------- FLIGHTS (only when screen ON, or forced) ----------
@@ -564,7 +564,8 @@ while True:
         # =====================
         #   HSL BUS VIEW (table)
         # =====================
-        draw_text("HSL BUSES (CITY)", 20, 70, big_font)
+        stop1_desc = cfg.get("hsl_stop_1_desc", "").upper()
+        draw_text(stop1_desc, 20, 70, big_font)
         draw_text("TIME", 20, 100, base_font, GREEN)
         draw_text("ROUTE", 120, 100, base_font, GREEN)
         draw_text("MIN", 200, 100, base_font, GREEN)
@@ -573,7 +574,7 @@ while True:
 
         y = 125
         with lock:
-            city_rows = state["buses_city"][:5]
+            city_rows = state["buses_stop_1"][:5]
 
         if not city_rows or any("Load" in str(r) for r in city_rows):
             draw_text("Loading HSL data...", 20, y, base_font, GREEN)
@@ -608,7 +609,8 @@ while True:
 
         # move down for airport direction
         y += 20
-        draw_text("HSL BUSES (AIRPORT)", 20, y, big_font, GREEN)
+        stop2_desc = cfg.get("hsl_stop_2_desc", "").upper()
+        draw_text(stop2_desc, 20, y, big_font, GREEN)
         y += 30
         draw_text("TIME", 20, y, base_font, GREEN)
         draw_text("ROUTE", 120, y, base_font, GREEN)
@@ -619,7 +621,7 @@ while True:
         y += 25
 
         with lock:
-            air_rows = state["buses_airport"][:5]
+            air_rows = state["buses_stop_2"][:5]
 
         if not air_rows or any("Load" in str(r) for r in air_rows):
             draw_text("Loading HSL data...", 20, y, base_font, GREEN)
