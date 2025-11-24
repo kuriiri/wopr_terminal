@@ -97,8 +97,10 @@ Example:
   "openweather_key": "YOUR_KEY",
   "weather_city": "Vantaa",
   "hsl_key": "YOUR_HSL_API_KEY",
-  "hsl_stop_city": "HSL_STOP_ID",
-  "hsl_stop_airport": "HSL_STOP_ID",
+  "hsl_stop_1": "HSL:1234567",
+  "hsl_stop_1_desc": "BUSES TO THE CITY",
+  "hsl_stop_2": "HSL:1234567",
+  "hsl_stop_2_desc": "BUSES TO THE AIRPORT", 
   "finavia_key": "YOUR_FINAVIA_API_KEY",
   "fmi_areacode": "FI-18",
 
