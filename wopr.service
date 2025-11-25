@@ -7,7 +7,9 @@ User=pi
 Group=pi
 Type=simple
 Restart=on-failure
+ExecStartPre=/usr/local/bin/backlight_on.sh
 ExecStart=/usr/bin/python3 /home/pi/wopr-display/wopr.py
+ExecStopPost=/usr/local/bin/backlight_on.sh
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
