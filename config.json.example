@@ -20,5 +20,6 @@
     { "start": "16:00", "end": "18:00" }
   ],
   "backlight_timeout_min": 20,
-  "fmi_areacode": "FI-18"
+  "fmi_areacode": "FI-18",
+  "electricity_hours_ahead": 36
 }
