@@ -73,7 +73,7 @@ state = {
     "buses_stop_1": ["Loading..."],
     "buses_stop_2": ["Loading..."],
     "flights": ["Loading..."],
-    "electricity": None,
+    "electricity": {"rows": []},
 }
 
 lock = threading.Lock()
@@ -85,6 +85,9 @@ def updater_loop():
     hsl_interval = cfg.get("hsl_interval_sec", 20)               # screen ON
     hsl_interval_off = cfg.get("hsl_interval_off_sec", 40)       # screen OFF
     flight_interval = cfg.get("flight_interval_sec", 60)         # default 1 min
+    energy_interval = cfg.get("energy_interval_sec", 600)  # default every 10 minutes
+    last_energy = 0.0
+
 
     last_weather = 0.0
     last_hsl = 0.0
@@ -143,7 +146,15 @@ def updater_loop():
             with lock:
                 state["flights"] = f
             last_flights = now
+            
+        # ---------- ELECTRICITY PRICES ----------
+        if backlight_on and (now - last_energy >= energy_interval or force_refresh or initial_refresh):
+            elec = get_spot_prices(cfg.get("electricity_hours_ahead", 36))
+            with lock:
+                state["electricity"] = elec
+            last_energy = now
 
+     
 
         # if we were asked for an immediate refresh, clear the flag now
         if force_refresh:
@@ -319,6 +330,7 @@ def draw_energy_view():
     """
     with lock:
         elec = state.get("electricity")
+
 
     if not elec or not elec.get("rows"):
         draw_text("ENERGY PRICE STATUS", 20, 70, big_font, GREEN)
