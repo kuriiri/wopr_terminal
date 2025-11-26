@@ -86,12 +86,12 @@ def updater_loop():
     hsl_interval_off = cfg.get("hsl_interval_off_sec", 40)       # screen OFF
     flight_interval = cfg.get("flight_interval_sec", 60)         # default 1 min
     energy_interval = cfg.get("energy_interval_sec", 600)  # default every 10 minutes
-    last_energy = 0.0
-
+  
 
     last_weather = 0.0
     last_hsl = 0.0
     last_flights = 0.0
+    last_energy = 0.0
 
     initial_refresh = True
 
@@ -146,7 +146,7 @@ def updater_loop():
             with lock:
                 state["flights"] = f
             last_flights = now
-            
+
         # ---------- ELECTRICITY PRICES ----------
         if backlight_on and (now - last_energy >= energy_interval or force_refresh or initial_refresh):
             elec = get_spot_prices(cfg.get("electricity_hours_ahead", 36))
@@ -843,10 +843,10 @@ while True:
         draw_weather_ext_view()
     
     elif current_view == 3:
-        draw_energy_view()
         # =====================
         #   ENERGY PRICE VIEW
         # =====================
+        draw_energy_view()
 
     if cfg.get("show_scanlines", True):
         draw_scanlines()
