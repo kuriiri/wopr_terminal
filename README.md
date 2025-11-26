@@ -122,7 +122,7 @@ Get your fmi_areacode from: https://fi.wikipedia.org/wiki/ISO_3166-2:FI
 
 ```bash
 sudo apt install python3-pygame python3-requests
-git clone https://github.com/YOURNAME/wopr-display.git
+git clone https://github.com/kuriiri/wopr-display.git
 cd wopr-display
 python3 wopr.py
 ```
