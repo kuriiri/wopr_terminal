@@ -29,9 +29,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(HERE, "config.json")) as f:
     cfg = json.load(f)
 
-# 0 = HSL, 1 = Flights, 2 = extended weather
+# 0 = HSL, 1 = Flights, 2 = extended weather view, 3 = Electricity  
 current_view = 0
-
 
 # Pygame init
 pygame.init()
@@ -73,7 +72,7 @@ state = {
     "buses_stop_1": ["Loading..."],
     "buses_stop_2": ["Loading..."],
     "flights": ["Loading..."],
-    "electricity": {"rows": []},
+    "electricity": None
 }
 
 lock = threading.Lock()
@@ -148,13 +147,12 @@ def updater_loop():
             last_flights = now
 
         # ---------- ELECTRICITY PRICES ----------
-        if backlight_on and (now - last_energy >= energy_interval or force_refresh or initial_refresh):
+        if (now - last_energy >= energy_interval or force_refresh or initial_refresh):
             elec = get_spot_prices(cfg.get("electricity_hours_ahead", 36))
             with lock:
                 state["electricity"] = elec
             last_energy = now
-
-     
+                
 
         # if we were asked for an immediate refresh, clear the flag now
         if force_refresh:

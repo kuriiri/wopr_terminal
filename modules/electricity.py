@@ -19,8 +19,6 @@ def classify_level(price_c):
         return "SEVERE"
     if price_c > 20.0:
         return "RED"
-    # 20–25c, not explicitly defined: treat as YELLOW-ish
-#    return "YELLOW"
 
 
 def get_spot_prices(hours_ahead=36):
@@ -48,7 +46,7 @@ def get_spot_prices(hours_ahead=36):
     On error, returns {"rows": [], ...} with None fields.
     """
 
-    now = datetime.datetime.now().replace(minute=0, second=0, microsecond=0)
+    now = datetime.datetime.now(datetime.timezone.utc).astimezone
     # Fetch from midnight local today to cover "now + future"
     start = now.replace(hour=0)
     # sahkotin expects ISO 8601; example uses .000Z, but docs say "local time".
