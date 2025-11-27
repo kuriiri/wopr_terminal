@@ -14,7 +14,7 @@ Live bus departures, airport flight status, real-time weather and tactical weath
 * Live OpenWeatherMap data w/ wind + weather trend arrows
 * FMI Pedestrian-safety warning
 * HSL real-time bus departures from two stops (city + airport)   
-* Finavia API: live flight departures (with delay/cancel colors) 
+* Finavia API: live flight departures and arrivals (with delay/cancel colors) 
 * Spot price of electricity
 * Touchscreen toggle between views (double-tap)                  
 * Automatic screen wake windows (morning + evening)              
@@ -33,7 +33,7 @@ Live bus departures, airport flight status, real-time weather and tactical weath
 * 🟥 RUN!!! (departing in < 5min)
 
 2️⃣ **Flight Status View**
-• Helsinki-Vantaa departures
+• Helsinki-Vantaa departures and arrivals
 • shows aircraft type, gate, stand, callsign
 • status color coded (CANCELLED / DELAYED)
 • ETD shown if delayed
