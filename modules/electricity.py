@@ -46,7 +46,7 @@ def get_spot_prices(hours_ahead=36):
     On error, returns {"rows": [], ...} with None fields.
     """
 
-    now = datetime.datetime.now(datetime.timezone.utc).astimezone
+    now = datetime.datetime.now(datetime.timezone.utc).astimezone()
     # Fetch from midnight local today to cover "now + future"
     start = now.replace(hour=0)
     # sahkotin expects ISO 8601; example uses .000Z, but docs say "local time".
