@@ -21,6 +21,7 @@ from modules.weather import get_weather
 from modules.hsl import get_stop_times
 from modules.flights import get_flights
 from modules.fmi import get_pedestrian_warning
+from modules.electricity import get_spot_prices
 from collections import deque
 
 # load config
@@ -28,9 +29,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(HERE, "config.json")) as f:
     cfg = json.load(f)
 
-# 0 = HSL, 1 = Flights, 2 = extended weather
+# 0 = HSL, 1 = Flights, 2 = extended weather view, 3 = Electricity  
 current_view = 0
-
 
 # Pygame init
 pygame.init()
@@ -71,7 +71,8 @@ state = {
     "ped_warning": None,
     "buses_stop_1": ["Loading..."],
     "buses_stop_2": ["Loading..."],
-    "flights": ["Loading..."]
+    "flights": ["Loading..."],
+    "electricity": None
 }
 
 lock = threading.Lock()
@@ -83,10 +84,13 @@ def updater_loop():
     hsl_interval = cfg.get("hsl_interval_sec", 20)               # screen ON
     hsl_interval_off = cfg.get("hsl_interval_off_sec", 40)       # screen OFF
     flight_interval = cfg.get("flight_interval_sec", 60)         # default 1 min
+    energy_interval = cfg.get("energy_interval_sec", 600)  # default every 10 minutes
+  
 
     last_weather = 0.0
     last_hsl = 0.0
     last_flights = 0.0
+    last_energy = 0.0
 
     initial_refresh = True
 
@@ -141,6 +145,14 @@ def updater_loop():
             with lock:
                 state["flights"] = f
             last_flights = now
+
+        # ---------- ELECTRICITY PRICES ----------
+        if (now - last_energy >= energy_interval or force_refresh or initial_refresh):
+            elec = get_spot_prices(cfg.get("electricity_hours_ahead", 36))
+            with lock:
+                state["electricity"] = elec
+            last_energy = now
+                
 
         # if we were asked for an immediate refresh, clear the flag now
         if force_refresh:
@@ -309,6 +321,123 @@ def draw_weather_ext_view():
     draw_text("DATA AGE:",    20, y, base_font, GREEN)
     draw_text(age_str,      180, y, base_font, GREEN)
 
+def draw_energy_view():
+    """
+    ENERGY PRICE STATUS – WOPR style electricity spot price view.
+    Uses state["electricity"] produced by get_spot_prices().
+    """
+    with lock:
+        elec = state.get("electricity")
+
+
+    if not elec or not elec.get("rows"):
+        draw_text("ENERGY PRICE STATUS", 20, 70, big_font, GREEN)
+        draw_text("NO PRICE DATA", 20, 110, base_font, GREEN)
+        return
+
+    rows = elec["rows"]
+    cur_price = elec.get("current_price")
+    cur_level = elec.get("current_level")
+    max_price = elec.get("max_price")
+    min_price = elec.get("min_price")
+    max_time = elec.get("max_time")
+    min_time = elec.get("min_time")
+
+    # Title
+    draw_text("ENERGY PRICE STATUS", 20, 60, big_font, GREEN)
+
+    # Current / min / max line
+    y = 90
+    if cur_price is not None:
+        cur_str = f"{cur_price:4.1f}c"
+    else:
+        cur_str = "---"
+
+    max_str = f"{max_price:4.1f}c" if max_price is not None else "---"
+    min_str = f"{min_price:4.1f}c" if min_price is not None else "---"
+    max_t_str = max_time.strftime("%H:%M") if max_time else "--:--"
+    min_t_str = min_time.strftime("%H:%M") if min_time else "--:--"
+
+    info_line = f"NOW {cur_str}   MIN {min_str} @ {min_t_str}   MAX {max_str} @ {max_t_str}"
+    draw_text(info_line, 20, y, base_font, GREEN)
+    y += 30
+
+    # Column headers
+    draw_text("TIME", 20, y, base_font, GREEN)
+    draw_text("PRICE", 90, y, base_font, GREEN)
+    draw_text("Δ", 170, y, base_font, GREEN)
+    draw_text("BAR", 200, y, base_font, GREEN)
+    y += 20
+
+    # Determine scaling – option 1: max visible price
+    prices_only = [r["price"] for r in rows if r["price"] is not None]
+    if prices_only:
+        scale_max = max(prices_only)
+    else:
+        scale_max = 1.0
+
+    BAR_WIDTH = 26  # characters
+
+    ticks = pygame.time.get_ticks()
+
+    for row in rows[:14]:  # show up to 14 future hours
+        dt = row["time"]
+        price = row["price"]
+        level = row["level"]
+        trend = row.get("trend", " ")
+        is_current = row.get("is_current", False)
+
+        hh = dt.strftime("%H")
+        if price is None:
+            price_str = "---"
+            bar_str = ""
+            level_color = DIM_GREEN
+        else:
+            price_str = f"{price:4.1f}c"
+            # scale bar height
+            ratio = price / scale_max if scale_max > 0 else 0
+            bar_len = max(1, int(ratio * BAR_WIDTH))
+            bar_str = "#" * bar_len
+
+            # choose color based on severity
+            if level == "GREEN":
+                level_color = GREEN
+            elif level == "YELLOW":
+                level_color = YELLOW
+            elif level == "RED":
+                level_color = RED
+            elif level == "SEVERE":
+                # flashing red
+                if (ticks // 300) % 2 == 0:
+                    level_color = RED
+                else:
+                    level_color = (120, 0, 0)
+            else:
+                level_color = DIM_GREEN
+
+        # row color base
+        row_color = level_color
+        if price is None:
+            row_color = DIM_GREEN
+
+        # highlight current hour slightly
+        if is_current:
+            # little marker at TIME
+            hh_display = f">{hh}<"
+        else:
+            hh_display = f" {hh} "
+
+        draw_text(hh_display, 20, y, base_font, row_color)
+        draw_text(price_str, 90, y, base_font, row_color)
+        draw_text(trend, 170, y, base_font, row_color)
+        if bar_str:
+            draw_text(bar_str, 200, y, base_font, row_color)
+
+        y += 20
+        if y > 440:
+            break
+
+
 
 # -------- BACKLIGHT / TIME WINDOW HELPERS --------
 
@@ -469,7 +598,7 @@ while True:
             last_tap_time = now_ticks
 
             if tap_count >= 2:
-                current_view = (current_view +1 ) % 3 # 3 views: HSL, Flights, WX extended
+                current_view = (current_view +1 ) % 4 # 3 views: HSL, Flights, WX extended, Electricity
                 #show_flights = not show_flights
                 tap_count = 0
 
@@ -710,6 +839,12 @@ while True:
         #   EXTENDED WEATHER VIEW
         # =====================
         draw_weather_ext_view()
+    
+    elif current_view == 3:
+        # =====================
+        #   ENERGY PRICE VIEW
+        # =====================
+        draw_energy_view()
 
     if cfg.get("show_scanlines", True):
         draw_scanlines()
