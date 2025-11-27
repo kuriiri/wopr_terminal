@@ -19,7 +19,7 @@ import datetime
 
 from modules.weather import get_weather
 from modules.hsl import get_stop_times
-from modules.flights import get_flights
+from modules.flights import get_flights, get_arrivals
 from modules.fmi import get_pedestrian_warning
 from modules.electricity import get_spot_prices
 from collections import deque
@@ -28,6 +28,13 @@ from collections import deque
 HERE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(HERE, "config.json")) as f:
     cfg = json.load(f)
+
+VIEW_HSL = 0
+VIEW_DEPARTURES = 1
+VIEW_WEATHER_EXT = 2
+VIEW_ELECTRICITY = 3
+VIEW_ARRIVALS = 4
+NUM_VIEWS = 5
 
 # 0 = HSL, 1 = Flights, 2 = extended weather view, 3 = Electricity  
 current_view = 0
@@ -72,6 +79,7 @@ state = {
     "buses_stop_1": ["Loading..."],
     "buses_stop_2": ["Loading..."],
     "flights": ["Loading..."],
+    "arrivals": ["Loading..."],
     "electricity": None
 }
 
@@ -144,6 +152,7 @@ def updater_loop():
             f = get_flights(cfg.get("finavia_key"))
             with lock:
                 state["flights"] = f
+                state["arrivals"] = get_arrivals(cfg.get("finavia_key"))
             last_flights = now
 
         # ---------- ELECTRICITY PRICES ----------
@@ -437,6 +446,35 @@ def draw_energy_view():
         if y > 440:
             break
 
+def draw_arrivals_view():
+    draw_text("ARRIVALS HELSINKI-VANTAA", 20, 70, big_font, GREEN)
+    col_y = 100
+
+    headers = ["TIME","FLT","FROM","TYPE","REG","STA","CALL","STAT"]
+    cols = [20, 90, 160, 240, 300, 360, 450, 540]
+
+    for txt, x in zip(headers, cols):
+        draw_text(txt, x, col_y, base_font, GREEN)
+
+    y = col_y + 28
+
+    with lock:
+        arrs = state["arrivals"]
+
+    for row in arrs[:10]:
+        if not isinstance(row, (list, tuple)): 
+            draw_text(str(row), 20, y, base_font, WHITE)
+            y += 24
+            continue
+
+        t, flt, frm, ac, reg, stand, call, status, _ = row
+        color = RED if status=="CAN" else YELLOW if status=="DEL" else GREEN
+
+        data = [t, flt, frm, ac, reg, stand, call, status]
+        for value, x in zip(data, cols):
+            draw_text(value, x, y, base_font, color if x>=540 else GREEN)
+        y += 24
+
 
 
 # -------- BACKLIGHT / TIME WINDOW HELPERS --------
@@ -598,7 +636,7 @@ while True:
             last_tap_time = now_ticks
 
             if tap_count >= 2:
-                current_view = (current_view +1 ) % 4 # 3 views: HSL, Flights, WX extended, Electricity
+                current_view = (current_view +1 ) % NUM_VIEWS # 5 views: HSL, Flights, WX extended, Electricity, arrivals
                 #show_flights = not show_flights
                 tap_count = 0
 
@@ -845,6 +883,9 @@ while True:
         #   ENERGY PRICE VIEW
         # =====================
         draw_energy_view()
+
+    elif current_view == VIEW_ARRIVALS:
+        draw_arrivals_view()
 
     if cfg.get("show_scanlines", True):
         draw_scanlines()

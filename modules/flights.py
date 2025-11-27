@@ -106,3 +106,70 @@ def get_flights(api_key, limit=12, retries=1, backoff=1.0, debug=False):
         time.sleep(backoff)
 
     return [("ERR", last_err, "", "", "", "", "", "", "ERROR")]
+
+def get_arrivals(api_key, limit=10):
+    if not api_key:
+        return ["No API key for Finavia"]
+
+    try:
+        url = "https://apigw.finavia.fi/flights/public/v0/flights/arr"
+        headers = {"app_key": api_key}
+        r = requests.get(url, headers=headers, timeout=10)
+        r.raise_for_status()
+
+        root = ET.fromstring(r.text)
+        arrs = []
+
+        now = datetime.datetime.now(datetime.timezone.utc).astimezone()
+
+        for fl in root.findall(".//arr/flight"):
+            time_elem = fl.find("sdt")
+            num_elem  = fl.find("fltnr")
+            from_elem = fl.find("route_1")
+            ac_elem   = fl.find("actype")
+            reg_elem  = fl.find("acreg")
+            stand_elem = fl.find("park")
+
+            # convert UTC → local
+            try:
+                dt_utc = datetime.datetime.fromisoformat(
+                    time_elem.text.replace("Z", "+00:00")
+                )
+                dt_local = dt_utc.astimezone()
+                if dt_local < now:
+                    continue
+                t_str = dt_local.strftime("%H:%M")
+            except:
+                t_str = ""
+
+            status_elem = fl.find("prt")  # “Arrived”, “Delayed” etc.
+            status = ""
+            if status_elem is not None:
+                txt = status_elem.text.upper()
+                if "CANCEL" in txt:
+                    status = "CAN"
+                elif "DELAY" in txt:
+                    status = "DEL"
+                else:
+                    status = "OK"
+
+            call = fl.findtext("callsign", "")
+            arrs.append([
+                t_str,
+                num_elem.text if num_elem is not None else "UNK",
+                from_elem.text if from_elem is not None else "UNK",
+                ac_elem.text if ac_elem is not None else "",
+                reg_elem.text if reg_elem is not None else "",
+                stand_elem.text if stand_elem is not None else "",
+                call,
+                status,
+                ""  # EST arrival time unused for now
+            ])
+
+        if not arrs:
+            return ["No arrival data"]
+
+        return arrs[:limit]
+
+    except Exception as e:
+        return [f"Err: {e}"]
