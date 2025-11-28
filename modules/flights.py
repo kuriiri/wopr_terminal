@@ -106,3 +106,153 @@ def get_flights(api_key, limit=12, retries=1, backoff=1.0, debug=False):
         time.sleep(backoff)
 
     return [("ERR", last_err, "", "", "", "", "", "", "ERROR")]
+
+def get_arrivals(api_key, limit=10):
+    """
+    Fetch upcoming arrivals for HEL using Finavia's public API.
+    Returns a list of rows:
+      [time, flt, origin, type, reg, stand, callsign, status, new_time]
+    """
+
+    if not api_key:
+        return ["No API key"]
+
+    url = "https://apigw.finavia.fi/flights/public/v0/flights/arr"
+    headers = {"app_key": api_key}
+
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        r.raise_for_status()
+        xml_text = r.text
+
+        root = ET.fromstring(xml_text)
+
+        # Handle XML namespace like we did for departures
+        tag = root.tag  # e.g. "{http://www.finavia.fi/FlightsService.xsd}flights"
+        if tag.startswith("{"):
+            ns_uri = tag.split("}")[0].strip("{")
+            ns = {"f": ns_uri}
+        else:
+            ns = {}
+
+        arrivals = []
+
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+
+        # <flights><arr><body><flight>...</flight>
+        if ns:
+            flight_path = ".//f:arr/f:body/f:flight"
+        else:
+            flight_path = ".//arr/body/flight"
+
+        for fl in root.findall(flight_path, ns):
+            # --- TIME (STA preferred, fallback sdt) ---
+            sta_elem = fl.find("f:sta", ns) if ns else fl.find("sta")
+            sdt_elem = fl.find("f:sdt", ns) if ns else fl.find("sdt")
+
+            t_raw = None
+            if sta_elem is not None and sta_elem.text:
+                t_raw = sta_elem.text
+            elif sdt_elem is not None and sdt_elem.text:
+                t_raw = sdt_elem.text
+
+            if not t_raw:
+                # No time, skip
+                continue
+
+            try:
+                dt_utc = datetime.datetime.fromisoformat(
+                    t_raw.replace("Z", "+00:00")
+                )
+                # Filter past arrivals
+                if dt_utc < now_utc:
+                    continue
+                dt_local = dt_utc.astimezone()
+                t_str = dt_local.strftime("%H:%M")
+            except Exception:
+                t_str = ""
+                dt_local = None
+
+            # --- BASIC FIELDS ---
+            def get_text(tag_name):
+                if ns:
+                    elem = fl.find(f"f:{tag_name}", ns)
+                else:
+                    elem = fl.find(tag_name)
+                return elem.text.strip() if elem is not None and elem.text else ""
+
+            flt   = get_text("fltnr") or "UNK"
+            origin = get_text("route_1") or "UNK"
+            ac    = get_text("actype") or "UNK"
+            reg   = get_text("acreg") or ""
+            stand = get_text("park") or ""
+            call  = get_text("callsign") or ""
+
+            # --- STATUS / DELAYS ---
+            prt = get_text("prt")
+
+            # If flight already landed → do not show
+            if prt == "Landed":
+                continue
+
+            status = "OK"
+            new_time = ""
+
+            dt_now = datetime.datetime.now(datetime.timezone.utc)
+
+            # Estimated arrival time (ETA)
+            est_a_raw = get_text("est_d")
+            if est_a_raw:
+                try:
+                    dt_est_utc = datetime.datetime.fromisoformat(
+                        est_a_raw.replace("Z", "+00:00")
+                    )
+                    dt_est_local = dt_est_utc.astimezone()
+                    new_time = dt_est_local.strftime("%H:%M")
+
+                    # delay check (> 2 minutes)
+                    diff_min = (dt_est_utc - dt_utc).total_seconds() / 60.0
+                    if diff_min > 2:
+                        status = "DEL"
+                except Exception:
+                    new_time = ""
+            else:
+                new_time = ""
+
+            # Cancelled check — FINAVIA uses e.g. "Cancelled"
+            if prt == "Cancelled":  
+                status = "CAN"
+                new_time = ""
+
+            # Filtering rule:
+            # keep if still upcoming OR delayed even if scheduled has passed
+            keep = (
+                dt_utc >= dt_now or
+                status == "DEL"
+            )
+
+            if not keep:
+                continue
+
+            # Row layout must match what wopr.py expects
+            arrivals.append([
+                t_str,    # time
+                flt,      # flight number
+                origin,   # origin airport
+                ac,       # aircraft type
+                reg,      # registration
+                stand,    # stand/park
+                call,     # callsign
+                status,   # OK / DEL / CAN
+                "",       # plac    
+                new_time # raw estimated time if delayed
+            ])
+
+        if not arrivals:
+            return ["No arrival data"]
+
+        return arrivals[:limit]
+
+    except Exception as e:
+        return [f"Err: {e}"]
+
