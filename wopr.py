@@ -470,9 +470,17 @@ def draw_arrivals_view():
         t, flt, frm, ac, reg, stand, call, status, _, eta = row
         color = RED if status=="CAN" else YELLOW if status=="DEL" else GREEN
 
-        data = [t, flt, frm, ac, reg, stand, call, status, _, eta]
-        for value, x in zip(data, cols):
-            draw_text(value, x, y, base_font, color if x>=720 else GREEN)
+        data = [t, flt, frm, ac, reg, stand, call, status, eta]
+        for i, (value, x) in enumerate(zip(data, cols)):
+            # STATUS (index 7)
+            if i == 7:
+                draw_text(value, x, y, base_font, color)
+            # ETA (index 8) if delayed and has new time
+            elif i == 8 and status == "DEL":
+                draw_text(value, x, y, base_font, YELLOW)
+            # Everything else green
+            else:
+                draw_text(value, x, y, base_font, GREEN)
         y += 24
 
 
