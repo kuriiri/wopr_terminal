@@ -353,10 +353,10 @@ def draw_energy_view():
     min_time = elec.get("min_time")
 
     # Title
-    draw_text("ENERGY PRICE STATUS", 20, 60, big_font, GREEN)
+    draw_text("ENERGY PRICE STATUS", 20, 70, big_font, GREEN)
 
     # Current / min / max line
-    y = 90
+    y = 100
     if cur_price is not None:
         cur_str = f"{cur_price:4.1f}c"
     else:
@@ -450,8 +450,8 @@ def draw_arrivals_view():
     draw_text("ARRIVALS HELSINKI-VANTAA", 20, 70, big_font, GREEN)
     col_y = 100
 
-    headers = ["TIME","FLT","FROM","TYPE","REG","STA","CALL","STAT"]
-    cols = [20, 90, 160, 240, 300, 360, 450, 540]
+    headers = ["TIME","FLT","FROM","TYPE","REG","STD","CALLSIGN","STA","ETA"]
+    cols = [20, 90, 160, 230, 300, 450, 520, 660, 720]
 
     for txt, x in zip(headers, cols):
         draw_text(txt, x, col_y, base_font, GREEN)
@@ -467,12 +467,12 @@ def draw_arrivals_view():
             y += 24
             continue
 
-        t, flt, frm, ac, reg, stand, call, status, _ = row
+        t, flt, frm, ac, reg, stand, call, status, _, eta = row
         color = RED if status=="CAN" else YELLOW if status=="DEL" else GREEN
 
-        data = [t, flt, frm, ac, reg, stand, call, status]
+        data = [t, flt, frm, ac, reg, stand, call, status, _, eta]
         for value, x in zip(data, cols):
-            draw_text(value, x, y, base_font, color if x>=540 else GREEN)
+            draw_text(value, x, y, base_font, color if x>=720 else GREEN)
         y += 24
 
 
