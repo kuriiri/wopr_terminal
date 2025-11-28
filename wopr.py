@@ -734,7 +734,6 @@ while True:
             draw_text(details, cursor_x, 40, big_font, GREEN)
     
 
-
     if current_view == 0:
         # =====================
         #   HSL BUS VIEW (table)
@@ -829,6 +828,19 @@ while True:
 
     elif current_view == 1:
         # =====================
+        #   ENERGY PRICE VIEW
+        # =====================
+        draw_energy_view()
+
+
+    elif current_view == 2:
+        # =====================
+        #   EXTENDED WEATHER VIEW
+        # =====================
+        draw_weather_ext_view()
+
+    elif current_view == 3:
+        # =====================
         #   FLIGHT BOARD VIEW
         # =====================
         header_y = 70
@@ -879,18 +891,6 @@ while True:
                 draw_text(str(flight), 20, y, base_font, GREEN)
 
             y += 26
-
-    elif current_view == 2:
-        # =====================
-        #   EXTENDED WEATHER VIEW
-        # =====================
-        draw_weather_ext_view()
-    
-    elif current_view == 3:
-        # =====================
-        #   ENERGY PRICE VIEW
-        # =====================
-        draw_energy_view()
 
     elif current_view == VIEW_ARRIVALS:
         draw_arrivals_view()
