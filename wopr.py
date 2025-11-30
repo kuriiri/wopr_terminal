@@ -306,11 +306,11 @@ def draw_weather_ext_view():
         draw_text(wd,          180, y, base_font, GREEN)
         y += line_h
 
-    # ----- Sunrise & Sunset | WOPR Tactical Style -----
-    sunrise = weather.get("sunrise")  # "HH:MM" string
-    sunset = weather.get("sunset")    # "HH:MM" string
-    sr_dt = weather.get("sunrise_dt") # datetime object
-    ss_dt = weather.get("sunset_dt")  # datetime object
+    # ----- SUNRISE & SUNSET — Tactical WOPR Phase Logic -----
+    sr_dt = weather.get("sunrise_dt")
+    ss_dt = weather.get("sunset_dt")
+    sunrise = weather.get("sunrise", "")
+    sunset = weather.get("sunset", "")
     now_dt = datetime.datetime.now().astimezone()
 
     def fmt_diff(delta):
@@ -319,29 +319,43 @@ def draw_weather_ext_view():
         mins = mins % 60
         return f"{hrs:02d} HRS {mins:02d} MIN"
 
-    if sr_dt:
-        draw_text("SUNRISE:", 20, y, base_font, GREEN)
-        draw_text(sunrise, 180, y, base_font, GREEN)
-
+    if sr_dt and ss_dt:
+        # Determine current phase
         if now_dt < sr_dt:
-            status = "DAY TIME REMAINING " + fmt_diff(sr_dt - now_dt)
+            phase = "NIGHT"
+        elif now_dt < ss_dt:
+            phase = "DAY"
         else:
-            status = "DAY TIME ELAPSED " + fmt_diff(now_dt - sr_dt)
+            phase = "NIGHT"
 
-        draw_text(status, 250, y, base_font, GREEN)
+        # ---- SUNRISE row ----
+        draw_text("SUNRISE:", 20, y, base_font, GREEN)
+        draw_text(sunrise, 120, y, base_font, GREEN)
+
+        if phase == "NIGHT":
+            label = "NIGHT TIME REMAINING" if now_dt < sr_dt else "NIGHT TIME ELAPSED"
+            diff = fmt_diff(sr_dt - now_dt if now_dt < sr_dt else now_dt - sr_dt)
+        else:
+            label = "DAY TIME ELAPSED"
+            diff = fmt_diff(now_dt - sr_dt)
+
+        draw_text(f"{label} {diff}", 250, y, base_font, GREEN)
         y += line_h
 
-    if ss_dt:
+        # ---- SUNSET row ----
         draw_text("SUNSET:", 20, y, base_font, GREEN)
-        draw_text(sunset, 180, y, base_font, GREEN)
+        draw_text(sunset, 120, y, base_font, GREEN)
 
-        if now_dt < ss_dt:
-            status = "DAY TIME REMAINING " + fmt_diff(ss_dt - now_dt)
+        if phase == "DAY":
+            label = "DAY TIME REMAINING"
+            diff = fmt_diff(ss_dt - now_dt)
         else:
-            status = "NIGHT TIME ELAPSED " + fmt_diff(now_dt - ss_dt)
+            label = "NIGHT TIME ELAPSED"
+            diff = fmt_diff(now_dt - ss_dt)
 
-        draw_text(status, 250, y, base_font, GREEN)
+        draw_text(f"{label} {diff}", 250, y, base_font, GREEN)
         y += line_h
+
 
 
     # DATA AGE
