@@ -30,9 +30,9 @@ with open(os.path.join(HERE, "config.json")) as f:
     cfg = json.load(f)
 
 VIEW_HSL = 0
-VIEW_DEPARTURES = 1
-VIEW_WEATHER_EXT = 2
-VIEW_ELECTRICITY = 3
+VIEW_WEATHER_EXT = 1
+VIEW_ELECTRICITY = 2
+VIEW_DEPARTURES = 3
 VIEW_ARRIVALS = 4
 NUM_VIEWS = 5
 
