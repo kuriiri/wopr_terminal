@@ -668,6 +668,8 @@ while True:
         if now_ticks - last_activity > 250:
             screen.fill(BLACK)
             pygame.display.flip()
+            if initial_refresh and backlight_on:
+                initial_refresh = False
             clock.tick(10)
             continue
 
