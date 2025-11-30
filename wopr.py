@@ -67,9 +67,8 @@ WHITE = (255, 255, 255)
 
 BACKLIGHT_TIMEOUT = cfg.get("backlight_timeout_min", 20) * 60 * 1000
 backlight_on = True
-in_greeting = False
-force_refresh = False
 last_temps = deque(maxlen=12)
+in_greeting = False
 
 
 # state
@@ -94,13 +93,10 @@ def updater_loop():
     flight_interval = cfg.get("flight_interval_sec", 60)         # default 1 min
     energy_interval = cfg.get("energy_interval_sec", 600)  # default every 10 minutes
   
-
     last_weather = 0.0
     last_hsl = 0.0
     last_flights = 0.0
     last_energy = 0.0
-
-    initial_refresh = True
 
     while True:
         now = time.time()
@@ -170,9 +166,8 @@ def updater_loop():
         # initial run is completed
         if initial_refresh:
             initial_refresh = False
-
-            if not in_on_window():
-                set_backlight(False)
+        # Do NOT turn off backlight here — override takes control
+        # Simply exit initial setup without touching backlight
 
         time.sleep(1)
 
@@ -467,7 +462,7 @@ def draw_arrivals_view():
             y += 24
             continue
 
-        t, flt, frm, ac, reg, stand, call, status, _, eta = row
+        t, flt, frm, ac, reg, stand, call, status, eta = row
         color = RED if status=="CAN" else YELLOW if status=="DEL" else GREEN
 
         data = [t, flt, frm, ac, reg, stand, call, status, eta]
@@ -590,7 +585,7 @@ last_activity = pygame.time.get_ticks()
 
 while True:
     now_ticks = pygame.time.get_ticks()
-
+   
     for ev in pygame.event.get():
         ## DEBUG
         # print(ev)
@@ -646,25 +641,28 @@ while True:
                 current_view = (current_view +1 ) % NUM_VIEWS # 5 views: HSL, Flights, WX extended, Electricity, arrivals
                 #show_flights = not show_flights
                 tap_count = 0
+    
+    # ---- Backlight scheduling / timeout with override ----
+    idle_ms = now_ticks - last_activity
 
-    # ---- Backlight scheduling / timeout ----
-    if in_on_window():
-        # During scheduled windows → ensure backlight ON
-        if not backlight_on:
-            set_backlight(True)
+    if overrode_schedule:
+        # Ignore schedule until override timeout
+        if idle_ms > BACKLIGHT_TIMEOUT:
+            overrode_schedule = False
     else:
-        idle_ms = now_ticks - last_activity
-        # Outside windows → auto-off after inactivity
-        if backlight_on and idle_ms > BACKLIGHT_TIMEOUT:
-            set_backlight(False)
+        # Normal time-based scheduling
+        if in_on_window():
+            set_backlight(True)
+        else:
+            if backlight_on and idle_ms > BACKLIGHT_TIMEOUT:
+                set_backlight(False)
 
-    # If backlight is OFF, we still spin but skip drawing heavy stuff
+    # If backlight is OFF → skip drawing to prevent accidental wake flicker
     if not backlight_on:
-        if now_ticks - last_activity > 250:
-            screen.fill(BLACK)
-            pygame.display.flip()
-            clock.tick(10)
-            continue
+        screen.fill(BLACK)
+        pygame.display.flip()
+        clock.tick(10)
+        continue
 
     # Normal drawing when backlight is ON and not in greeting
     screen.fill(BLACK)
@@ -675,19 +673,6 @@ while True:
     clock_text = base_font.render(dt_str, True, GREEN)
     rect = clock_text.get_rect(topright=(WIDTH - 20, 10))
     screen.blit(clock_text, rect)
-
-    # After boot animation, ensure correct backlight state and trigger initial refresh
-    if overrode_schedule:
-        # Ignore schedule until timeout triggers
-        if now - last_activity > BACKLIGHT_TIMEOUT:
-            overrode_schedule = False  # schedule regains control
-    else:
-        # Normal scheduled control
-        if in_on_window():
-            set_backlight(True)
-        else:
-            if backlight_on and idle_ms > BACKLIGHT_TIMEOUT:
-                set_backlight(False)
 
     # WEATHER (always visible - now with hazard awareness)
     with lock:
@@ -746,7 +731,7 @@ while True:
             draw_text(details, cursor_x, 40, big_font, GREEN)
     
 
-    if current_view == 0:
+    if current_view == VIEW_HSL:
         # =====================
         #   HSL BUS VIEW (table)
         # =====================
@@ -838,22 +823,22 @@ while True:
 
                     y += 26
 
-    elif current_view == 1:
+    elif current_view == VIEW_ELECTRICITY:
         # =====================
         #   ENERGY PRICE VIEW
         # =====================
         draw_energy_view()
 
 
-    elif current_view == 2:
+    elif current_view == VIEW_WEATHER_EXT:
         # =====================
         #   EXTENDED WEATHER VIEW
         # =====================
         draw_weather_ext_view()
 
-    elif current_view == 3:
+    elif current_view == VIEW_DEPARTURES:
         # =====================
-        #   FLIGHT BOARD VIEW
+        #   DERARTING FLIGHTS BOARD VIEW
         # =====================
         header_y = 70
         column_y = 95
