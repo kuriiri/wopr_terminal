@@ -330,7 +330,7 @@ def draw_weather_ext_view():
 
         # ---- SUNRISE row ----
         draw_text("SUNRISE:", 20, y, base_font, GREEN)
-        draw_text(sunrise, 120, y, base_font, GREEN)
+        draw_text(sunrise, 180, y, base_font, GREEN)
 
         if phase == "NIGHT":
             label = "NIGHT TIME REMAINING" if now_dt < sr_dt else "NIGHT TIME ELAPSED"
@@ -344,7 +344,7 @@ def draw_weather_ext_view():
 
         # ---- SUNSET row ----
         draw_text("SUNSET:", 20, y, base_font, GREEN)
-        draw_text(sunset, 120, y, base_font, GREEN)
+        draw_text(sunset, 180, y, base_font, GREEN)
 
         if phase == "DAY":
             label = "DAY TIME REMAINING"
@@ -355,7 +355,6 @@ def draw_weather_ext_view():
 
         draw_text(f"{label} {diff}", 250, y, base_font, GREEN)
         y += line_h
-
 
 
     # DATA AGE
