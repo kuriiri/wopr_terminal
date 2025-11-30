@@ -244,7 +244,6 @@ def get_arrivals(api_key, limit=10):
                 stand,    # stand/park
                 call,     # callsign
                 status,   # OK / DEL / CAN
-                "",       # plac    
                 new_time # raw estimated time if delayed
             ])
 

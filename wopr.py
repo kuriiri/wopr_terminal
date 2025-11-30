@@ -30,13 +30,12 @@ with open(os.path.join(HERE, "config.json")) as f:
     cfg = json.load(f)
 
 VIEW_HSL = 0
-VIEW_DEPARTURES = 1
-VIEW_WEATHER_EXT = 2
-VIEW_ELECTRICITY = 3
+VIEW_WEATHER_EXT = 1
+VIEW_ELECTRICITY = 2
+VIEW_DEPARTURES = 3
 VIEW_ARRIVALS = 4
 NUM_VIEWS = 5
 
-# 0 = HSL, 1 = Flights, 2 = extended weather view, 3 = Electricity  
 current_view = 0
 
 # Pygame init
@@ -67,9 +66,8 @@ WHITE = (255, 255, 255)
 
 BACKLIGHT_TIMEOUT = cfg.get("backlight_timeout_min", 20) * 60 * 1000
 backlight_on = True
-in_greeting = False
-force_refresh = False
 last_temps = deque(maxlen=12)
+in_greeting = False
 
 
 # state
@@ -94,13 +92,10 @@ def updater_loop():
     flight_interval = cfg.get("flight_interval_sec", 60)         # default 1 min
     energy_interval = cfg.get("energy_interval_sec", 600)  # default every 10 minutes
   
-
     last_weather = 0.0
     last_hsl = 0.0
     last_flights = 0.0
     last_energy = 0.0
-
-    initial_refresh = True
 
     while True:
         now = time.time()
@@ -170,9 +165,8 @@ def updater_loop():
         # initial run is completed
         if initial_refresh:
             initial_refresh = False
-
-            if not in_on_window():
-                set_backlight(False)
+        # Do NOT turn off backlight here — override takes control
+        # Simply exit initial setup without touching backlight
 
         time.sleep(1)
 
@@ -467,7 +461,7 @@ def draw_arrivals_view():
             y += 24
             continue
 
-        t, flt, frm, ac, reg, stand, call, status, _, eta = row
+        t, flt, frm, ac, reg, stand, call, status, eta = row
         color = RED if status=="CAN" else YELLOW if status=="DEL" else GREEN
 
         data = [t, flt, frm, ac, reg, stand, call, status, eta]
@@ -559,7 +553,7 @@ def boot_sequence():
     draw_text("INITIALISING WOPR TERMINAL...", 20, 40, big_font)
     pygame.display.flip()
     time.sleep(1.2)
-    msg = "GREETINGS PROFESSOR FALKEN..."
+    msg = "GREETINGS PROFESSOR FALKEN."
     x = 20
     for ch in msg:
         draw_text(ch, x, 80, big_font)
@@ -570,13 +564,13 @@ def boot_sequence():
 
 boot_sequence()
 
-# After boot animation, ensure correct backlight state and trigger initial refresh
-if not in_on_window():
-    set_backlight(False)
-else:
-    set_backlight(True)
-
+# Service restart wake behavior
+set_backlight(True)
+backlight_on = True
+last_activity = pygame.time.get_ticks()
 force_refresh = True   # immediate data sync once
+initial_refresh = True
+overrode_schedule = True
 
 # main loop
 clock = pygame.time.Clock()
@@ -591,81 +585,70 @@ last_activity = pygame.time.get_ticks()
 
 while True:
     now_ticks = pygame.time.get_ticks()
-
+   
     for ev in pygame.event.get():
-        ## DEBUG
-        # print(ev)
-
-        # Convert touchscreen FINGERDOWN into synthetic mouse click
+        # -- Touchscreen input --
         if ev.type == pygame.FINGERDOWN:
-            # any finger touch counts as activity
+            now_ticks = pygame.time.get_ticks()
             last_activity = now_ticks
 
-            # If backlight is OFF, wake with greeting instead of toggling view
+            # If screen is OFF → wake it up and skip toggling behavior
             if not backlight_on:
                 set_backlight(True)
-                pygame.event.clear()  # clear stale events
-                run_greeting_sequence()
-                # After greeting, we just continue to normal drawing
+                backlight_on = True
+                overrode_schedule = True  # prevent instant turn-off
                 force_refresh = True
+                initial_refresh = True
+                continue  # DO NOT toggle views
 
-                break
-            else:
-                mx = int(ev.x * WIDTH)
-                my = int(ev.y * HEIGHT)
-                pygame.event.post(
-                    pygame.event.Event(
-                        pygame.MOUSEBUTTONDOWN,
-                        {'pos': (mx, my), 'button': 1}
-                    )
-                )
+            # Convert touch to synthetic mouse click
+            mx = int(ev.x * WIDTH)
+            my = int(ev.y * HEIGHT)
+            pygame.event.post(pygame.event.Event(
+                pygame.MOUSEBUTTONDOWN, {'pos': (mx, my), 'button': 1}
+            ))
 
-        if ev.type == pygame.QUIT:
-            pygame.quit()
-            raise SystemExit
-        elif ev.type == pygame.KEYDOWN:
-            if ev.key in (pygame.K_q, pygame.K_ESCAPE):
-                pygame.quit()
-                raise SystemExit
-        elif ev.type == pygame.MOUSEBUTTONDOWN:
-            # Mouse or converted finger hit → activity
+        # -- Normal mouse / converted touch click --
+        if ev.type == pygame.MOUSEBUTTONDOWN:
+            now_ticks = pygame.time.get_ticks()
             last_activity = now_ticks
 
-            # Ignore view toggling if in greeting
-            if in_greeting or not backlight_on:
-                continue
+            if not backlight_on or in_greeting:
+                continue  # ignore toggle while waking / greeting
 
-            # Double-tap logic
+            # double-tap for switching screens
             if now_ticks - last_tap_time <= DOUBLE_TAP_TIME:
                 tap_count += 1
             else:
                 tap_count = 1
 
             last_tap_time = now_ticks
-
             if tap_count >= 2:
-                current_view = (current_view +1 ) % NUM_VIEWS # 5 views: HSL, Flights, WX extended, Electricity, arrivals
-                #show_flights = not show_flights
+                current_view = (current_view + 1) % 5  # HSL, WX, ELEC, DEP, ARR
                 tap_count = 0
 
-    # ---- Backlight scheduling / timeout ----
-    if in_on_window():
-        # During scheduled windows → ensure backlight ON
-        if not backlight_on:
-            set_backlight(True)
-    else:
-        idle_ms = now_ticks - last_activity
-        # Outside windows → auto-off after inactivity
-        if backlight_on and idle_ms > BACKLIGHT_TIMEOUT:
-            set_backlight(False)
+    
+    # ---- Backlight scheduling / timeout with override ----
+    idle_ms = now_ticks - last_activity
 
-    # If backlight is OFF, we still spin but skip drawing heavy stuff
+    if overrode_schedule:
+        # Ignore schedule until override timeout
+        if idle_ms > BACKLIGHT_TIMEOUT:
+            overrode_schedule = False
+    else:
+        # Normal time-based scheduling
+        if in_on_window():
+            set_backlight(True)
+        else:
+            if backlight_on and idle_ms > BACKLIGHT_TIMEOUT:
+                set_backlight(False)
+
+    # If backlight is OFF → skip drawing to prevent accidental wake flicker
     if not backlight_on:
-        if now_ticks - last_activity > 250:
-            screen.fill(BLACK)
-            pygame.display.flip()
-            clock.tick(10)
-            continue
+        screen.fill(BLACK)
+        pygame.display.flip()
+        clock.tick(10)
+        continue
 
     # Normal drawing when backlight is ON and not in greeting
     screen.fill(BLACK)
@@ -734,7 +717,7 @@ while True:
             draw_text(details, cursor_x, 40, big_font, GREEN)
     
 
-    if current_view == 0:
+    if current_view == VIEW_HSL:
         # =====================
         #   HSL BUS VIEW (table)
         # =====================
@@ -826,22 +809,22 @@ while True:
 
                     y += 26
 
-    elif current_view == 1:
+    elif current_view == VIEW_ELECTRICITY:
         # =====================
         #   ENERGY PRICE VIEW
         # =====================
         draw_energy_view()
 
 
-    elif current_view == 2:
+    elif current_view == VIEW_WEATHER_EXT:
         # =====================
         #   EXTENDED WEATHER VIEW
         # =====================
         draw_weather_ext_view()
 
-    elif current_view == 3:
+    elif current_view == VIEW_DEPARTURES:
         # =====================
-        #   FLIGHT BOARD VIEW
+        #   DERARTING FLIGHTS BOARD VIEW
         # =====================
         header_y = 70
         column_y = 95
