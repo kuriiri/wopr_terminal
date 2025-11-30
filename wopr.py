@@ -577,19 +577,6 @@ force_refresh = True   # immediate data sync once
 initial_refresh = True
 overrode_schedule = True
 
-# After boot animation, ensure correct backlight state and trigger initial refresh
-if overrode_schedule:
-    # Ignore schedule until timeout triggers
-    if now - last_activity > BACKLIGHT_TIMEOUT:
-        overrode_schedule = False  # schedule regains control
-else:
-    # Normal scheduled control
-    if in_on_window():
-        set_backlight(True)
-    else:
-        if backlight_on and idle_ms > BACKLIGHT_TIMEOUT:
-            set_backlight(False)
-
 # main loop
 clock = pygame.time.Clock()
 
@@ -688,6 +675,19 @@ while True:
     clock_text = base_font.render(dt_str, True, GREEN)
     rect = clock_text.get_rect(topright=(WIDTH - 20, 10))
     screen.blit(clock_text, rect)
+
+    # After boot animation, ensure correct backlight state and trigger initial refresh
+    if overrode_schedule:
+        # Ignore schedule until timeout triggers
+        if now - last_activity > BACKLIGHT_TIMEOUT:
+            overrode_schedule = False  # schedule regains control
+    else:
+        # Normal scheduled control
+        if in_on_window():
+            set_backlight(True)
+        else:
+            if backlight_on and idle_ms > BACKLIGHT_TIMEOUT:
+                set_backlight(False)
 
     # WEATHER (always visible - now with hazard awareness)
     with lock:
