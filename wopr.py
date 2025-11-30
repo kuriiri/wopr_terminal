@@ -306,19 +306,50 @@ def draw_weather_ext_view():
         draw_text(wd,          180, y, base_font, GREEN)
         y += line_h
 
-    # SUNRISE / SUNSET
-    if sunrise:
-        draw_text("SUNRISE:", 20, y, base_font, GREEN)
-        delta = time_delta_str(sunrise)
-        draw_text(f"{sunrise}  {delta}", 180, y, base_font, GREEN)
-        y += line_h
+    # ----- Sunrise & Sunset | WOPR Tactical Style -----
+    sr = weather.get("sunrise_local")   # datetime object
+    ss = weather.get("sunset_local")    # datetime object
+    now_dt = datetime.datetime.now().astimezone()
 
-    # SUNSET
-    if sunset:
-        draw_text("SUNSET:", 20, y, base_font, GREEN)
-        delta = time_delta_str(sunset)
-        draw_text(f"{sunset}  {delta}", 180, y, base_font, GREEN)
-        y += line_h
+    def fmt_diff(delta):
+        mins = abs(int(delta.total_seconds() // 60))
+        hrs = mins // 60
+        mins = mins % 60
+        return f"{hrs:02d} HRS {mins:02d} MIN"
+
+    y_sun = y
+    label_x = 20
+    info_x = 180
+
+    if sr:
+        draw_text("SUNRISE:", label_x, y_sun, base_font, GREEN)
+        draw_text(sr.strftime("%H:%M"), label_x + 110, y_sun, base_font, GREEN)
+
+        if now_dt < sr:
+            delta = sr - now_dt
+            status = "DAY TIME REMAINING " + fmt_diff(delta)
+        else:
+            delta = now_dt - sr
+            status = "DAY TIME ELAPSED " + fmt_diff(delta)
+
+        draw_text(status, info_x, y_sun, base_font, GREEN)
+        y_sun += line_h
+
+    if ss:
+        draw_text("SUNSET:", label_x, y_sun, base_font, GREEN)
+        draw_text(ss.strftime("%H:%M"), label_x + 110, y_sun, base_font, GREEN)
+
+        if now_dt < ss:
+            delta = ss - now_dt
+            status = "DAY TIME REMAINING " + fmt_diff(delta)
+        else:
+            delta = now_dt - ss
+            status = "NIGHT TIME ELAPSED " + fmt_diff(delta)
+
+        draw_text(status, info_x, y_sun, base_font, GREEN)
+        y_sun += line_h
+
+    y = y_sun  # move down for the next weather lines
 
     # DATA AGE
     draw_text("DATA AGE:",    20, y, base_font, GREEN)
