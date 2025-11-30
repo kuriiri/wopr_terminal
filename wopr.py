@@ -306,7 +306,7 @@ def draw_weather_ext_view():
         draw_text(wd,          180, y, base_font, GREEN)
         y += line_h
 
-    # ----- SUNRISE & SUNSET — Tactical WOPR Phase Logic -----
+    # ----- SUNRISE & SUNSET — Tactical WOPR Phase Logic (Fixed) -----
     sr_dt = weather.get("sunrise_dt")
     ss_dt = weather.get("sunset_dt")
     sunrise = weather.get("sunrise", "")
@@ -320,21 +320,26 @@ def draw_weather_ext_view():
         return f"{hrs:02d} HRS {mins:02d} MIN"
 
     if sr_dt and ss_dt:
-        # Determine current phase
-        if now_dt < sr_dt:
-            phase = "NIGHT"
-        elif now_dt < ss_dt:
+        # Determine correct upcoming sunrise (tomorrow if today already passed)
+        if now_dt > sr_dt:
+            # next sunrise = add 1 day
+            next_sr = sr_dt + datetime.timedelta(days=1)
+        else:
+            next_sr = sr_dt
+
+        # Determine if currently DAY or NIGHT
+        if sr_dt <= now_dt < ss_dt:
             phase = "DAY"
         else:
             phase = "NIGHT"
 
         # ---- SUNRISE row ----
         draw_text("SUNRISE:", 20, y, base_font, GREEN)
-        draw_text(sunrise, 180, y, base_font, GREEN)
+        draw_text(sunrise, 120, y, base_font, GREEN)
 
         if phase == "NIGHT":
-            label = "NIGHT TIME REMAINING" if now_dt < sr_dt else "NIGHT TIME ELAPSED"
-            diff = fmt_diff(sr_dt - now_dt if now_dt < sr_dt else now_dt - sr_dt)
+            label = "NIGHT TIME REMAINING"
+            diff = fmt_diff(next_sr - now_dt)
         else:
             label = "DAY TIME ELAPSED"
             diff = fmt_diff(now_dt - sr_dt)
@@ -344,7 +349,7 @@ def draw_weather_ext_view():
 
         # ---- SUNSET row ----
         draw_text("SUNSET:", 20, y, base_font, GREEN)
-        draw_text(sunset, 180, y, base_font, GREEN)
+        draw_text(sunset, 120, y, base_font, GREEN)
 
         if phase == "DAY":
             label = "DAY TIME REMAINING"
@@ -355,6 +360,7 @@ def draw_weather_ext_view():
 
         draw_text(f"{label} {diff}", 250, y, base_font, GREEN)
         y += line_h
+
 
 
     # DATA AGE
