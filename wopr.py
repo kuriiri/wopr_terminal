@@ -570,6 +570,13 @@ def boot_sequence():
 
 boot_sequence()
 
+# Service restart wake behavior
+set_backlight(True)
+last_activity = pygame.time.get_ticks()
+force_refresh = True   # immediate data sync once
+initial_refresh = True
+overrode_schedule = True
+
 # After boot animation, ensure correct backlight state and trigger initial refresh
 if overrode_schedule:
     # Ignore schedule until timeout triggers
@@ -582,12 +589,6 @@ else:
     else:
         if backlight_on and idle_ms > BACKLIGHT_TIMEOUT:
             set_backlight(False)
-
-# Service restart wake behavior
-set_backlight(True)
-last_activity = pygame.time.get_ticks()
-force_refresh = True   # immediate data sync once
-initial_refresh = True
 
 # main loop
 clock = pygame.time.Clock()
