@@ -576,7 +576,11 @@ if not in_on_window():
 else:
     set_backlight(True)
 
+# Service restart wake behavior
+set_backlight(True)
+last_activity = pygame.time.get_ticks()
 force_refresh = True   # immediate data sync once
+initial_refresh = True
 
 # main loop
 clock = pygame.time.Clock()
