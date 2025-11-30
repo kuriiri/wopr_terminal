@@ -966,17 +966,7 @@ while True:
         draw_arrivals_view()
 
     elif current_view == VIEW_LIGHTS and ev.type == pygame.MOUSEBUTTONDOWN:
-        mx, my = ev.pos
-        row_index = (my - 120) // 32  # SAME numbers we use in draw_lights_view()
-
-        with lock:
-            lights = state.get("lights", [])
-
-        if 0 <= row_index < len(lights):
-            entity = lights[row_index]["entity"]
-            if toggle_light(cfg.get("homeassistant_base"), cfg.get("homeassistant_token"), entity):
-                last_activity = now_ticks  # reset timeout
-                force_refresh = True
+        draw_lights_view()
 
 
 
