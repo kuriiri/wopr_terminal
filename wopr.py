@@ -22,6 +22,7 @@ from modules.hsl import get_stop_times
 from modules.flights import get_flights, get_arrivals
 from modules.fmi import get_pedestrian_warning
 from modules.electricity import get_spot_prices
+from modules.lights import get_lights, toggle_light
 from collections import deque
 
 # load config
@@ -69,7 +70,6 @@ BACKLIGHT_TIMEOUT = cfg.get("backlight_timeout_min", 20) * 60 * 1000
 backlight_on = True
 last_temps = deque(maxlen=12)
 in_greeting = False
-
 
 # state
 state = {
@@ -171,12 +171,6 @@ def updater_loop():
         # Simply exit initial setup without touching backlight
 
         # ---------- HOME ASSISTANT LIGHT STATUS ----------
-        try:
-            from modules.lights import get_lights_state
-            lights = get_lights_state(cfg)
-        except Exception:
-            lights = None
-
         with lock:
             state["lights"] = lights
 
@@ -534,37 +528,29 @@ def draw_arrivals_view():
         y += 24
 
 def draw_lights_view():
-    draw_text("DOMESTIC POWER GRID ACCESS", 20, 70, big_font, GREEN)
-    draw_text("LIGHT CONTROL TERMINAL", 20, 100, big_font, GREEN)
-
-    y = 140
-    line_h = 40
+    ha_base = cfg.get("homeassistant_url")
+    ha_token = cfg.get("ha_token")
+    lights = get_lights(ha_base, ha_token)
+    
+    draw_text("LIGHT CONTROL SYSTEM - HOME NETWORK", 20, 70, big_font, GREEN)
 
     with lock:
         lights = state.get("lights", [])
 
     if not lights:
-        draw_text("NO LIGHT DATA", 20, y, base_font, YELLOW)
+        draw_text("NO LIGHT DATA", 20, 120, base_font, YELLOW)
         return
 
-    for entity_id, is_on, available in lights:
-        # Auto-name from entity_id "light.living_room" -> "LIVING ROOM"
-        name = entity_id.split(".")[1].replace("_", " ").upper()
+    y = 120
+    for l in lights:
+        name = l["name"]
+        is_on = l["is_on"]
+        icon = "●" if is_on else "○"  # filled = ON, empty = OFF
+        color = GREEN if is_on else RED
 
-        if not available:
-            state_color = YELLOW
-            status = "---"   # offline/unavailable
-        else:
-            if is_on:
-                state_color = GREEN
-                status = "ON"
-            else:
-                state_color = RED
-                status = "OFF"
+        draw_text(f"{icon} {name}", 20, y, base_font, color)
+        y += 32
 
-        draw_text(name,   40, y, base_font, GREEN)
-        draw_text(status, 400, y, base_font, state_color)
-        y += line_h
 
 
 # -------- BACKLIGHT / TIME WINDOW HELPERS --------
@@ -703,7 +689,7 @@ while True:
 
             if current_view == 5:  # Lights view
                 with lock:
-                    lights = state.get("lights", [])
+                    lights = state.get("ha_lights", [])
                 row_height = 40
                 start_y = 140
                 for i, (entity_id, is_on, available) in enumerate(lights):
@@ -979,8 +965,20 @@ while True:
     elif current_view == VIEW_ARRIVALS:
         draw_arrivals_view()
 
-    elif current_view == VIEW_LIGHTS:
-        draw_lights_view()
+    elif current_view == VIEW_LIGHTS and ev.type == pygame.MOUSEBUTTONDOWN:
+        mx, my = ev.pos
+        row_index = (my - 120) // 32  # SAME numbers we use in draw_lights_view()
+
+        with lock:
+            lights = state.get("lights", [])
+
+        if 0 <= row_index < len(lights):
+            entity = lights[row_index]["entity"]
+            if toggle_light(cfg.get("homeassistant_base"), cfg.get("homeassistant_token"), entity):
+                last_activity = now_ticks  # reset timeout
+                force_refresh = True
+
+
 
     if cfg.get("show_scanlines", True):
         draw_scanlines()
