@@ -34,7 +34,8 @@ VIEW_WEATHER_EXT = 1
 VIEW_ELECTRICITY = 2
 VIEW_DEPARTURES = 3
 VIEW_ARRIVALS = 4
-NUM_VIEWS = 5
+VIEW_LIGHTS = 5
+NUM_VIEWS = 6
 
 current_view = 0
 
@@ -78,7 +79,8 @@ state = {
     "buses_stop_2": ["Loading..."],
     "flights": ["Loading..."],
     "arrivals": ["Loading..."],
-    "electricity": None
+    "electricity": None,
+    "lights": [],
 }
 
 lock = threading.Lock()
@@ -167,6 +169,17 @@ def updater_loop():
             initial_refresh = False
         # Do NOT turn off backlight here — override takes control
         # Simply exit initial setup without touching backlight
+
+        # ---------- HOME ASSISTANT LIGHT STATUS ----------
+        try:
+            from modules.lights import get_lights_state
+            lights = get_lights_state(cfg)
+        except Exception:
+            lights = None
+
+        with lock:
+            state["lights"] = lights
+
 
         time.sleep(1)
 
@@ -520,6 +533,38 @@ def draw_arrivals_view():
                 draw_text(value, x, y, base_font, GREEN)
         y += 24
 
+def draw_lights_view():
+    draw_text("DOMESTIC POWER GRID ACCESS", 20, 70, big_font, GREEN)
+    draw_text("LIGHT CONTROL TERMINAL", 20, 100, big_font, GREEN)
+
+    y = 140
+    line_h = 40
+
+    with lock:
+        lights = state.get("lights", [])
+
+    if not lights:
+        draw_text("NO LIGHT DATA", 20, y, base_font, YELLOW)
+        return
+
+    for entity_id, is_on, available in lights:
+        # Auto-name from entity_id "light.living_room" -> "LIVING ROOM"
+        name = entity_id.split(".")[1].replace("_", " ").upper()
+
+        if not available:
+            state_color = YELLOW
+            status = "---"   # offline/unavailable
+        else:
+            if is_on:
+                state_color = GREEN
+                status = "ON"
+            else:
+                state_color = RED
+                status = "OFF"
+
+        draw_text(name,   40, y, base_font, GREEN)
+        draw_text(status, 400, y, base_font, state_color)
+        y += line_h
 
 
 # -------- BACKLIGHT / TIME WINDOW HELPERS --------
@@ -656,6 +701,20 @@ while True:
             now_ticks = pygame.time.get_ticks()
             last_activity = now_ticks
 
+            if current_view == 5:  # Lights view
+                with lock:
+                    lights = state.get("lights", [])
+                row_height = 40
+                start_y = 140
+                for i, (entity_id, is_on, available) in enumerate(lights):
+                    ry = start_y + i * row_height
+                    if 40 <= mx <= 500 and ry <= my <= ry + row_height:
+                        if available:
+                            from modules.lights import toggle_light
+                            toggle_light(cfg, entity_id)
+                        last_activity = now_ticks
+                        break
+
             if not backlight_on or in_greeting:
                 continue  # ignore toggle while waking / greeting
 
@@ -667,10 +726,9 @@ while True:
 
             last_tap_time = now_ticks
             if tap_count >= 2:
-                current_view = (current_view + 1) % 5  # HSL, WX, ELEC, DEP, ARR
+                current_view = (current_view + 1) % NUM_VIEWS  # HSL, WX, ELEC, DEP, ARR, HOMEASSISTANT
                 tap_count = 0
-
-    
+        
     # ---- Backlight scheduling / timeout with override ----
     idle_ms = now_ticks - last_activity
 
@@ -920,6 +978,9 @@ while True:
 
     elif current_view == VIEW_ARRIVALS:
         draw_arrivals_view()
+
+    elif current_view == VIEW_LIGHTS:
+        draw_lights_view()
 
     if cfg.get("show_scanlines", True):
         draw_scanlines()
