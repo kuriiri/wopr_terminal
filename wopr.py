@@ -17,7 +17,7 @@ import json
 import threading
 import datetime
 
-from modules.weather import get_weather
+from modules.weather import get_weather, to_local_dt
 from modules.hsl import get_stop_times
 from modules.flights import get_flights, get_arrivals
 from modules.fmi import get_pedestrian_warning
@@ -307,8 +307,10 @@ def draw_weather_ext_view():
         y += line_h
 
     # ----- Sunrise & Sunset | WOPR Tactical Style -----
-    sr = weather.get("sunrise_local")   # datetime object
-    ss = weather.get("sunset_local")    # datetime object
+    sunrise = weather.get("sunrise")  # "HH:MM" string
+    sunset = weather.get("sunset")    # "HH:MM" string
+    sr_dt = weather.get("sunrise_dt") # datetime object
+    ss_dt = weather.get("sunset_dt")  # datetime object
     now_dt = datetime.datetime.now().astimezone()
 
     def fmt_diff(delta):
@@ -317,39 +319,30 @@ def draw_weather_ext_view():
         mins = mins % 60
         return f"{hrs:02d} HRS {mins:02d} MIN"
 
-    y_sun = y
-    label_x = 20
-    info_x = 180
+    if sr_dt:
+        draw_text("SUNRISE:", 20, y, base_font, GREEN)
+        draw_text(sunrise, 180, y, base_font, GREEN)
 
-    if sr:
-        draw_text("SUNRISE:", label_x, y_sun, base_font, GREEN)
-        draw_text(sr.strftime("%H:%M"), label_x + 110, y_sun, base_font, GREEN)
-
-        if now_dt < sr:
-            delta = sr - now_dt
-            status = "DAY TIME REMAINING " + fmt_diff(delta)
+        if now_dt < sr_dt:
+            status = "DAY TIME REMAINING " + fmt_diff(sr_dt - now_dt)
         else:
-            delta = now_dt - sr
-            status = "DAY TIME ELAPSED " + fmt_diff(delta)
+            status = "DAY TIME ELAPSED " + fmt_diff(now_dt - sr_dt)
 
-        draw_text(status, info_x, y_sun, base_font, GREEN)
-        y_sun += line_h
+        draw_text(status, 250, y, base_font, GREEN)
+        y += line_h
 
-    if ss:
-        draw_text("SUNSET:", label_x, y_sun, base_font, GREEN)
-        draw_text(ss.strftime("%H:%M"), label_x + 110, y_sun, base_font, GREEN)
+    if ss_dt:
+        draw_text("SUNSET:", 20, y, base_font, GREEN)
+        draw_text(sunset, 180, y, base_font, GREEN)
 
-        if now_dt < ss:
-            delta = ss - now_dt
-            status = "DAY TIME REMAINING " + fmt_diff(delta)
+        if now_dt < ss_dt:
+            status = "DAY TIME REMAINING " + fmt_diff(ss_dt - now_dt)
         else:
-            delta = now_dt - ss
-            status = "NIGHT TIME ELAPSED " + fmt_diff(delta)
+            status = "NIGHT TIME ELAPSED " + fmt_diff(now_dt - ss_dt)
 
-        draw_text(status, info_x, y_sun, base_font, GREEN)
-        y_sun += line_h
+        draw_text(status, 250, y, base_font, GREEN)
+        y += line_h
 
-    y = y_sun  # move down for the next weather lines
 
     # DATA AGE
     draw_text("DATA AGE:",    20, y, base_font, GREEN)

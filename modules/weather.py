@@ -1,5 +1,12 @@
 import requests
 import time
+import datetime
+
+def to_local_dt(ts):
+    if not ts:
+        return None
+    return datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).astimezone()
+
 
 def get_weather(api_key, city="Vantaa"):
     if not api_key:
@@ -14,6 +21,8 @@ def get_weather(api_key, city="Vantaa"):
             "visibility_km": "",
             "sunrise": "",
             "sunset": "",
+            "sunrise_dt": None,
+            "sunset_dt": None,
             "timestamp": None,
             "feels_like": ""   
         }
@@ -57,14 +66,12 @@ def get_weather(api_key, city="Vantaa"):
         else:
             visibility_km = ""
 
-        # sunrise/sunset as HH:MM local
-        def fmt_time(ts):
-            if not ts:
-                return ""
-            return time.strftime("%H:%M", time.localtime(ts))
+        # Sunrise/Sunset: both string and datetime
+        sr_dt = to_local_dt(sys.get("sunrise"))
+        ss_dt = to_local_dt(sys.get("sunset"))
 
-        sunrise = fmt_time(sys.get("sunrise"))
-        sunset = fmt_time(sys.get("sunset"))
+        sunrise = sr_dt.strftime("%H:%M") if sr_dt else ""
+        sunset  = ss_dt.strftime("%H:%M") if ss_dt else ""
 
         return {
             "temp": temp,
@@ -78,6 +85,8 @@ def get_weather(api_key, city="Vantaa"):
             "visibility_km": visibility_km,
             "sunrise": sunrise,
             "sunset": sunset,
+            "sunrise_dt": sr_dt,
+            "sunset_dt": ss_dt,
             "timestamp": time.time(),  # for DATA AGE on extended screen
         }
 
@@ -94,5 +103,7 @@ def get_weather(api_key, city="Vantaa"):
             "visibility_km": "",
             "sunrise": "",
             "sunset": "",
+            "sunrise_dt": sr_dt,
+            "sunset_dt": ss_dt,
             "timestamp": None,
         }
