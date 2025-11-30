@@ -559,7 +559,7 @@ def boot_sequence():
     draw_text("INITIALISING WOPR TERMINAL...", 20, 40, big_font)
     pygame.display.flip()
     time.sleep(1.2)
-    msg = "GREETINGS PROFESSOR FALKEN..."
+    msg = "GREETINGS PROFESSOR FALKEN."
     x = 20
     for ch in msg:
         draw_text(ch, x, 80, big_font)
@@ -571,10 +571,17 @@ def boot_sequence():
 boot_sequence()
 
 # After boot animation, ensure correct backlight state and trigger initial refresh
-if not in_on_window():
-    set_backlight(False)
+if overrode_schedule:
+    # Ignore schedule until timeout triggers
+    if now - last_activity > BACKLIGHT_TIMEOUT:
+        overrode_schedule = False  # schedule regains control
 else:
-    set_backlight(True)
+    # Normal scheduled control
+    if in_on_window():
+        set_backlight(True)
+    else:
+        if backlight_on and idle_ms > BACKLIGHT_TIMEOUT:
+            set_backlight(False)
 
 # Service restart wake behavior
 set_backlight(True)
@@ -668,8 +675,6 @@ while True:
         if now_ticks - last_activity > 250:
             screen.fill(BLACK)
             pygame.display.flip()
-            if initial_refresh and backlight_on:
-                initial_refresh = False
             clock.tick(10)
             continue
 
