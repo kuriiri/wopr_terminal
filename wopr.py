@@ -36,7 +36,6 @@ VIEW_ELECTRICITY = 3
 VIEW_ARRIVALS = 4
 NUM_VIEWS = 5
 
-# 0 = HSL, 1 = Flights, 2 = extended weather view, 3 = Electricity  
 current_view = 0
 
 # Pygame init
@@ -567,6 +566,7 @@ boot_sequence()
 
 # Service restart wake behavior
 set_backlight(True)
+backlight_on = True
 last_activity = pygame.time.get_ticks()
 force_refresh = True   # immediate data sync once
 initial_refresh = True
@@ -587,60 +587,46 @@ while True:
     now_ticks = pygame.time.get_ticks()
    
     for ev in pygame.event.get():
-        ## DEBUG
-        # print(ev)
-
-        # Convert touchscreen FINGERDOWN into synthetic mouse click
+        # -- Touchscreen input --
         if ev.type == pygame.FINGERDOWN:
-            # any finger touch counts as activity
+            now_ticks = pygame.time.get_ticks()
             last_activity = now_ticks
 
-            # If backlight is OFF, wake with greeting instead of toggling view
+            # If screen is OFF → wake it up and skip toggling behavior
             if not backlight_on:
                 set_backlight(True)
-                pygame.event.clear()  # clear stale events
-                run_greeting_sequence()
-                # After greeting, we just continue to normal drawing
+                backlight_on = True
+                overrode_schedule = True  # prevent instant turn-off
                 force_refresh = True
+                initial_refresh = True
+                continue  # DO NOT toggle views
 
-                break
-            else:
-                mx = int(ev.x * WIDTH)
-                my = int(ev.y * HEIGHT)
-                pygame.event.post(
-                    pygame.event.Event(
-                        pygame.MOUSEBUTTONDOWN,
-                        {'pos': (mx, my), 'button': 1}
-                    )
-                )
+            # Convert touch to synthetic mouse click
+            mx = int(ev.x * WIDTH)
+            my = int(ev.y * HEIGHT)
+            pygame.event.post(pygame.event.Event(
+                pygame.MOUSEBUTTONDOWN, {'pos': (mx, my), 'button': 1}
+            ))
 
-        if ev.type == pygame.QUIT:
-            pygame.quit()
-            raise SystemExit
-        elif ev.type == pygame.KEYDOWN:
-            if ev.key in (pygame.K_q, pygame.K_ESCAPE):
-                pygame.quit()
-                raise SystemExit
-        elif ev.type == pygame.MOUSEBUTTONDOWN:
-            # Mouse or converted finger hit → activity
+        # -- Normal mouse / converted touch click --
+        if ev.type == pygame.MOUSEBUTTONDOWN:
+            now_ticks = pygame.time.get_ticks()
             last_activity = now_ticks
 
-            # Ignore view toggling if in greeting
-            if in_greeting or not backlight_on:
-                continue
+            if not backlight_on or in_greeting:
+                continue  # ignore toggle while waking / greeting
 
-            # Double-tap logic
+            # double-tap for switching screens
             if now_ticks - last_tap_time <= DOUBLE_TAP_TIME:
                 tap_count += 1
             else:
                 tap_count = 1
 
             last_tap_time = now_ticks
-
             if tap_count >= 2:
-                current_view = (current_view +1 ) % NUM_VIEWS # 5 views: HSL, Flights, WX extended, Electricity, arrivals
-                #show_flights = not show_flights
+                current_view = (current_view + 1) % 5  # HSL, WX, ELEC, DEP, ARR
                 tap_count = 0
+
     
     # ---- Backlight scheduling / timeout with override ----
     idle_ms = now_ticks - last_activity
