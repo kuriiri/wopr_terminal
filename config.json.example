@@ -21,5 +21,11 @@
   ],
   "backlight_timeout_min": 20,
   "fmi_areacode": "FI-18",
-  "electricity_hours_ahead": 36
+  "electricity_hours_ahead": 36,
+  "homeassistant_url": "http://192.168.1.100:8123",
+  "ha_token": "eyJ",
+  "ha_lights": [
+    "switch.livingroom_switch_1",
+    "light.kitchen"
+    ]
 }
