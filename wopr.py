@@ -171,6 +171,11 @@ def updater_loop():
         # Simply exit initial setup without touching backlight
 
         # ---------- HOME ASSISTANT LIGHT STATUS ----------
+        ha_base = cfg.get("homeassistant_url")
+        ha_token = cfg.get("ha_token")
+
+        lights_data = get_lights(ha_base, ha_token)
+
         with lock:
             state["lights"] = lights
 
@@ -689,7 +694,7 @@ while True:
 
             if current_view == 5:  # Lights view
                 with lock:
-                    lights = state.get("ha_lights", [])
+                    lights = state.get("lights", [])
                 row_height = 40
                 start_y = 140
                 for i, (entity_id, is_on, available) in enumerate(lights):
@@ -697,7 +702,9 @@ while True:
                     if 40 <= mx <= 500 and ry <= my <= ry + row_height:
                         if available:
                             from modules.lights import toggle_light
-                            toggle_light(cfg, entity_id)
+                            toggle_light(cfg.get("homeassistant_url"),
+                                        cfg.get("ha_token"),
+                                        entity_id)
                         last_activity = now_ticks
                         break
 
