@@ -536,6 +536,8 @@ def draw_lights_view():
     ha_base = cfg.get("homeassistant_url")
     ha_token = cfg.get("ha_token")
     lights = get_lights(ha_base, ha_token)
+
+    print("DRAW LIGHTS", len(state.get("lights", [])))
     
     draw_text("LIGHT CONTROL SYSTEM - HOME NETWORK", 20, 70, big_font, GREEN)
 
@@ -972,9 +974,8 @@ while True:
     elif current_view == VIEW_ARRIVALS:
         draw_arrivals_view()
 
-    elif current_view == VIEW_LIGHTS and ev.type == pygame.MOUSEBUTTONDOWN:
+    elif current_view == VIEW_LIGHTS:
         draw_lights_view()
-
 
 
     if cfg.get("show_scanlines", True):
