@@ -710,19 +710,21 @@ while True:
                     lights = list(state.get("lights", []))
 
                 start_y = 140
-                row_h = 50
+                row_h = 60  # bigger tap area!
+                padding_x = 20
 
                 for i, (eid, _, _, available) in enumerate(lights):
-                    y = start_y + i * row_h
-                    if 20 <= mx <= WIDTH - 20 and y <= my <= y + row_h:
+                    row_top = start_y + i * row_h
+                    row_bottom = row_top + row_h
+
+                    if (padding_x <= mx <= WIDTH - padding_x) and (row_top <= my <= row_bottom):
                         if available:
-                            from modules.lights import toggle_light, get_lights
                             toggle_light(
                                 cfg.get("homeassistant_url"),
                                 cfg.get("ha_token"),
                                 eid
                             )
-                            # Refresh immediately
+                            # refresh UI state
                             with lock:
                                 state["lights"] = get_lights(
                                     cfg.get("homeassistant_url"),
@@ -731,8 +733,11 @@ while True:
                                     cfg.get("ha_light_names", {})
                                 )
                             force_refresh = True
-                        light_toggled = True
-                        break
+
+                        # DO NOT allow view change on this tap
+                        tap_count = 0
+                        continue
+
 
             # If a toggle happened → no view switching
             if light_toggled:
