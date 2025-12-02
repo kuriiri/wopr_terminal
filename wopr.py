@@ -158,7 +158,18 @@ def updater_loop():
             with lock:
                 state["electricity"] = elec
             last_energy = now
-                
+
+        # ---------- HOME ASSISTANT LIGHT STATUS ----------
+        if current_view == VIEW_LIGHTS or force_refresh:
+            new_lights = get_lights(
+                cfg.get("homeassistant_url"),
+                cfg.get("ha_token"),
+                cfg.get("ha_lights", []),
+                cfg.get("ha_light_names", {})
+            )
+            with lock:
+                state["lights"] = new_lights
+
 
         # if we were asked for an immediate refresh, clear the flag now
         if force_refresh:
@@ -169,16 +180,6 @@ def updater_loop():
             initial_refresh = False
         # Do NOT turn off backlight here — override takes control
         # Simply exit initial setup without touching backlight
-
-        # ---------- HOME ASSISTANT LIGHT STATUS ----------
-        ha_base = cfg.get("homeassistant_url")
-        ha_token = cfg.get("ha_token")
-
-        lights_data = get_lights(ha_base, ha_token)
-
-        with lock:
-            state["lights"] = lights
-
 
         time.sleep(1)
 
@@ -533,31 +534,33 @@ def draw_arrivals_view():
         y += 24
 
 def draw_lights_view():
-    ha_base = cfg.get("homeassistant_url")
-    ha_token = cfg.get("ha_token")
-    lights = get_lights(ha_base, ha_token)
+    draw_text("LIGHT CONTROL SYSTEM", 20, 70, big_font, GREEN)
 
-    print("DRAW LIGHTS", len(state.get("lights", [])))
-    
-    draw_text("LIGHT CONTROL SYSTEM - HOME NETWORK", 20, 70, big_font, GREEN)
 
     with lock:
-        lights = state.get("lights", [])
+        lights = list(state.get("lights", []))
 
-    if not lights:
-        draw_text("NO LIGHT DATA", 20, 120, base_font, YELLOW)
+    if not lights or not isinstance(lights[0], (list, tuple)):
+        draw_text("NO LIGHT DATA", 40, 140, base_font, YELLOW)
         return
 
-    y = 120
-    for l in lights:
-        name = l["name"]
-        is_on = l["is_on"]
-        icon = "●" if is_on else "○"  # filled = ON, empty = OFF
-        color = GREEN if is_on else RED
+    y = 140
+    row_h = 40
 
-        draw_text(f"{icon} {name}", 20, y, base_font, color)
-        y += 32
+    for row in lights:
+        # Skip malformed items
+        if not (isinstance(row, (list, tuple)) and len(row) == 4):
+            continue
 
+        entity_id, name, light_state, available = row
+
+        # Color logic
+        color = GREEN if light_state == "ON" else RED
+        if not available:
+            color = YELLOW
+
+        draw_text(f"{name} — {light_state}", 40, y, base_font, color)
+        y += row_h
 
 
 # -------- BACKLIGHT / TIME WINDOW HELPERS --------
@@ -694,19 +697,28 @@ while True:
             now_ticks = pygame.time.get_ticks()
             last_activity = now_ticks
 
-            if current_view == 5:  # Lights view
+            if current_view == VIEW_LIGHTS:  # Lights view
                 with lock:
                     lights = state.get("lights", [])
                 row_height = 40
                 start_y = 140
-                for i, (entity_id, is_on, available) in enumerate(lights):
+                for i, (entity_id, name, light_state, available) in enumerate(lights):
                     ry = start_y + i * row_height
                     if 40 <= mx <= 500 and ry <= my <= ry + row_height:
-                        if available:
-                            from modules.lights import toggle_light
-                            toggle_light(cfg.get("homeassistant_url"),
-                                        cfg.get("ha_token"),
-                                        entity_id)
+                        from modules.lights import toggle_light, get_lights
+                        toggle_light(cfg.get("homeassistant_url"),
+                                     cfg.get("ha_token"),
+                                     entity_id)
+                        with lock:
+                            state["lights"] = get_lights(
+                                cfg.get("homeassistant_url"),
+                                cfg.get("ha_token"),
+                                cfg.get("ha_lights", []),
+                                cfg.get("ha_light_names", {})
+                            )
+
+                        force_refresh = True
+
                         last_activity = now_ticks
                         break
 
@@ -976,7 +988,6 @@ while True:
 
     elif current_view == VIEW_LIGHTS:
         draw_lights_view()
-
 
     if cfg.get("show_scanlines", True):
         draw_scanlines()

@@ -1,50 +1,43 @@
 import requests
 
-def get_lights(base, token):
-    """
-    Fetch lights or switches that represent controllable light sources.
-    Returns a list of:
-      { "entity": entity_id, "name": friendly_name, "is_on": bool }
-    """
-    if not base or not token:
+def get_lights(ha_url, token, wanted=None, name_map=None):
+    if not ha_url or not token:
         return []
 
-    url = base.rstrip("/") + "/api/states"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-
     try:
-        r = requests.get(url, headers=headers, timeout=10)
+        r = requests.get(
+            f"{ha_url}/api/states",
+            headers={"Authorization": f"Bearer {token}",
+                     "Content-Type": "application/json"},
+            timeout=8
+        )
         r.raise_for_status()
         data = r.json()
 
-        lights = []
-        for ent in data:
-            eid = ent["entity_id"]
-            domain = eid.split(".")[0]
+        rows = []
+        for item in data:
+            eid = item.get("entity_id", "")
+            raw_state = item.get("state", "")
+            ui_name = item.get("attributes", {}).get("friendly_name", eid)
 
-            # Only track lights + switches
-            if domain not in ("light", "switch"):
+            if wanted and eid not in wanted:
                 continue
 
-            state = ent.get("state", "")
-            attrs = ent.get("attributes", {})
-            name = attrs.get("friendly_name", eid)
+            is_on = (raw_state.lower() == "on")
+            available = raw_state.lower() in ("on", "off")
 
-            is_on = state.lower() == "on"
+            # Friendly config override
+            pretty_name = name_map.get(eid, ui_name) if name_map else ui_name
 
-            lights.append({
-                "entity": eid,
-                "name": name.upper(),
-                "is_on": is_on
-            })
+            rows.append([eid, pretty_name,
+                         "ON" if is_on else "OFF",
+                         available])
 
-        return lights
+        return rows
 
     except Exception as e:
-        return [{"name": f"Err {e}", "entity": "", "is_on": False}]
+        return [f"Err: {e}"]
+
 
 
 def toggle_light(base, token, entity_id):
