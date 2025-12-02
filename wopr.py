@@ -719,10 +719,12 @@ while True:
 
                     if (padding_x <= mx <= WIDTH - padding_x) and (row_top <= my <= row_bottom):
                         if available:
+                            is_switch = eid.startswith("switch.")
                             toggle_light(
                                 cfg.get("homeassistant_url"),
                                 cfg.get("ha_token"),
-                                eid
+                                eid,
+                                is_switch=is_switch
                             )
                             # refresh UI state
                             with lock:
