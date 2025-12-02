@@ -699,6 +699,20 @@ while True:
             now_ticks = pygame.time.get_ticks()
             last_activity = now_ticks
 
+        if current_view != VIEW_LIGHTS:  # normal screen switching behaviour
+            if now_ticks - last_tap_time <= DOUBLE_TAP_TIME:
+                tap_count += 1
+            else:
+                tap_count = 1
+
+            last_tap_time = now_ticks
+
+            if tap_count >= 2:
+                current_view = (current_view + 1) % TOTAL_VIEWS
+                tap_count = 0
+                force_refresh = True
+                continue
+
         if current_view == VIEW_LIGHTS:
             with lock:
                 lights = list(state.get("lights", []))
