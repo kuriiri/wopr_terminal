@@ -557,7 +557,7 @@ def draw_lights_view():
         draw_text(state_str, 600, y, base_font, color)
 
         # Visual row area for debugging (optional)
-        # pygame.draw.rect(screen, (0,50,0), (20, y-2, WIDTH-40, row_h), 1)
+        pygame.draw.rect(screen, (0,50,0), (20, y-2, WIDTH-40, row_h), 1)
 
 
 # -------- BACKLIGHT / TIME WINDOW HELPERS --------
@@ -734,17 +734,12 @@ while True:
                                 )
                             force_refresh = True
 
-                            light_toggled = True
-                        
-                        # DO NOT allow view change on this tap
-                        tap_count = 0
-                        last_activity = now_ticks
-                        continue
+                        light_toggled = True
+                        break
 
-
-            # If a toggle happened → no view switching
-            if light_toggled:
-                continue
+                if light_toggled # DO NOT allow view change on this tap
+                    tap_count = 0
+                    continue
 
             # --------------------
             # DOUBLE TAP LOGIC (GLOBAL)
