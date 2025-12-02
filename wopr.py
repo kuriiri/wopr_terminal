@@ -536,31 +536,33 @@ def draw_arrivals_view():
 def draw_lights_view():
     draw_text("LIGHT CONTROL SYSTEM", 20, 70, big_font, GREEN)
 
-
     with lock:
         lights = list(state.get("lights", []))
 
-    if not lights or not isinstance(lights[0], (list, tuple)):
-        draw_text("NO LIGHT DATA", 40, 140, base_font, YELLOW)
+    if not lights:
+        draw_text("NO LIGHT DATA", 40, 160, base_font, YELLOW)
         return
 
-    y = 140
-    row_h = 40
+    start_y = 140
+    row_h = 50  # bigger button area
 
-    for row in lights:
-        # Skip malformed items
-        if not (isinstance(row, (list, tuple)) and len(row) == 4):
-            continue
+    for i, (eid, name, state_str, available) in enumerate(lights):
+        y = start_y + i * row_h
+        color = GREEN if state_str == "ON" else RED if available else YELLOW
 
-        entity_id, name, light_state, available = row
+        # Draw text
+        draw_text(name, 40, y, base_font, WHITE)
 
-        # Color logic
-        color = GREEN if light_state == "ON" else RED
-        if not available:
-            color = YELLOW
+        # Right-aligned ON/OFF text
+        draw_text(state_str, 600, y, base_font, color)
 
-        draw_text(f"{name} — {light_state}", 40, y, base_font, color)
-        y += row_h
+        # Visual row area for debugging (optional)
+        # pygame.draw.rect(screen, (0,50,0), (20, y-2, WIDTH-40, row_h), 1)
+
+    # Footer instruction
+    draw_text("TAP TO TOGGLE DEVICE STATE", 40,
+              start_y + len(lights) * row_h + 20,
+              small_font, YELLOW)
 
 
 # -------- BACKLIGHT / TIME WINDOW HELPERS --------
@@ -697,18 +699,22 @@ while True:
             now_ticks = pygame.time.get_ticks()
             last_activity = now_ticks
 
-            if current_view == VIEW_LIGHTS:  # Lights view
-                with lock:
-                    lights = state.get("lights", [])
-                row_height = 40
-                start_y = 140
-                for i, (entity_id, name, light_state, available) in enumerate(lights):
-                    ry = start_y + i * row_height
-                    if 40 <= mx <= 500 and ry <= my <= ry + row_height:
+        if current_view == VIEW_LIGHTS:
+            with lock:
+                lights = list(state.get("lights", []))
+
+            start_y = 140
+            row_h = 50
+            for i, (eid, _, _, available) in enumerate(lights):
+                y = start_y + i * row_h
+                if 20 <= mx <= WIDTH-20 and y <= my <= y + row_h:
+                    if available:
                         from modules.lights import toggle_light, get_lights
                         toggle_light(cfg.get("homeassistant_url"),
-                                     cfg.get("ha_token"),
-                                     entity_id)
+                                    cfg.get("ha_token"),
+                                    eid)
+
+                        # refresh immediately
                         with lock:
                             state["lights"] = get_lights(
                                 cfg.get("homeassistant_url"),
@@ -716,11 +722,9 @@ while True:
                                 cfg.get("ha_lights", []),
                                 cfg.get("ha_light_names", {})
                             )
-
                         force_refresh = True
-
-                        last_activity = now_ticks
-                        break
+                    last_activity = now_ticks
+                    break
 
             if not backlight_on or in_greeting:
                 continue  # ignore toggle while waking / greeting
