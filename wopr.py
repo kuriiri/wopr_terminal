@@ -689,74 +689,71 @@ while True:
                 pygame.MOUSEBUTTONDOWN, {'pos': (mx, my), 'button': 1}
             ))
 
-        # -- Normal mouse / converted touch click --
-        if ev.type == pygame.MOUSEBUTTONDOWN:
-            now_ticks = pygame.time.get_ticks()
-            last_activity = now_ticks
+            # -- Normal mouse / converted touch click --
+            if ev.type == pygame.MOUSEBUTTONDOWN:
+                now_ticks = pygame.time.get_ticks()
+                last_activity = now_ticks
+                mx, my = pygame.mouse.get_pos()
 
-            mx, my = pygame.mouse.get_pos()
+                light_toggled = False
 
-            # If screen wakes from off → do NOT interpret as tap for view change
-            if not backlight_on or in_greeting:
-                continue
+                # --------------------
+                # LIGHT CONTROL VIEW HANDLING
+                # --------------------
+                if current_view == VIEW_LIGHTS:
+                    with lock:
+                        lights = list(state.get("lights", []))
 
-            light_toggled = False
+                    start_y = 140
+                    row_h = 60
+                    padding_x = 20
 
-            # --------------------
-            # LIGHT CONTROL VIEW HANDLING
-            # --------------------
-            if current_view == VIEW_LIGHTS:
-                with lock:
-                    lights = list(state.get("lights", []))
+                    for i, (eid, _, _, available) in enumerate(lights):
+                        row_top = start_y + i * row_h
+                        row_bottom = row_top + row_h
 
-                start_y = 140
-                row_h = 60  # bigger tap area!
-                padding_x = 20
-
-                for i, (eid, _, _, available) in enumerate(lights):
-                    row_top = start_y + i * row_h
-                    row_bottom = row_top + row_h
-
-                    if (padding_x <= mx <= WIDTH - padding_x) and (row_top <= my <= row_bottom):
-                        if available:
-                            is_switch = eid.startswith("switch.")
-                            toggle_light(
-                                cfg.get("homeassistant_url"),
-                                cfg.get("ha_token"),
-                                eid,
-                                is_switch=is_switch
-                            )
-                            # refresh UI state
-                            with lock:
-                                state["lights"] = get_lights(
+                        if (padding_x <= mx <= WIDTH - padding_x) and (row_top <= my <= row_bottom):
+                            print(f"DEBUG: Toggle Touch - {eid}")
+                            if available:
+                                is_switch = eid.startswith("switch.")
+                                toggle_light(
                                     cfg.get("homeassistant_url"),
                                     cfg.get("ha_token"),
-                                    cfg.get("ha_lights", []),
-                                    cfg.get("ha_light_names", {})
+                                    eid,
+                                    is_switch=is_switch
                                 )
-                            force_refresh = True
 
-                        light_toggled = True
-                        break
+                                with lock:
+                                    state["lights"] = get_lights(
+                                        cfg.get("homeassistant_url"),
+                                        cfg.get("ha_token"),
+                                        cfg.get("ha_lights", []),
+                                        cfg.get("ha_light_names", {})
+                                    )
+
+                                force_refresh = True
+
+                            light_toggled = True
+                            tap_count = 0
+                            break
 
                 if light_toggled:
-                    tap_count = 0
                     continue
 
-            # --------------------
-            # DOUBLE TAP LOGIC (GLOBAL)
-            # --------------------
-            if now_ticks - last_tap_time <= DOUBLE_TAP_TIME:
-                tap_count += 1
-            else:
-                tap_count = 1
+                # --------------------
+                # DOUBLE TAP (VIEW SWITCH)
+                # --------------------
+                if now_ticks - last_tap_time <= DOUBLE_TAP_TIME:
+                    tap_count += 1
+                else:
+                    tap_count = 1
 
-            last_tap_time = now_ticks
+                last_tap_time = now_ticks
 
-            if tap_count >= 2:
-                current_view = (current_view + 1) % NUM_VIEWS
-                tap_count = 0
-                force_refresh = True
+                if tap_count >= 2:
+                    current_view = (current_view + 1) % NUM_VIEWS
+                    tap_count = 0
+                    force_refresh = True
 
 
         
