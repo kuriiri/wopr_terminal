@@ -551,7 +551,7 @@ def draw_lights_view():
         color = GREEN if state_str == "ON" else RED if available else YELLOW
 
         # Draw text
-        draw_text(name, 40, y, base_font, GREEN).upper()
+        draw_text(name, 40, y, base_font, GREEN)
 
         # Right-aligned ON/OFF text
         draw_text(state_str, 600, y, base_font, color)
