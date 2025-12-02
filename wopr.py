@@ -694,21 +694,27 @@ while True:
                 now_ticks = pygame.time.get_ticks()
                 last_activity = now_ticks
 
+                mx, my = pygame.mouse.get_pos()
+
+                # If screen wakes from off → do NOT interpret as tap for view change
+                if not backlight_on or in_greeting:
+                    continue
+
+                light_toggled = False
+
                 # --------------------
-                # LIGHT CONTROL VIEW
+                # LIGHT CONTROL VIEW HANDLING
                 # --------------------
                 if current_view == VIEW_LIGHTS:
                     with lock:
                         lights = list(state.get("lights", []))
 
                     start_y = 140
-                    row_h  = 50
-                    toggle_hit = False  # detect toggles to block screen switch
+                    row_h = 50
 
                     for i, (eid, _, _, available) in enumerate(lights):
                         y = start_y + i * row_h
                         if 20 <= mx <= WIDTH - 20 and y <= my <= y + row_h:
-                            toggle_hit = True
                             if available:
                                 from modules.lights import toggle_light, get_lights
                                 toggle_light(
@@ -716,6 +722,7 @@ while True:
                                     cfg.get("ha_token"),
                                     eid
                                 )
+                                # Refresh immediately
                                 with lock:
                                     state["lights"] = get_lights(
                                         cfg.get("homeassistant_url"),
@@ -724,14 +731,15 @@ while True:
                                         cfg.get("ha_light_names", {})
                                     )
                                 force_refresh = True
+                            light_toggled = True
                             break
 
-                    # If tap was meant for lights → do NOT switch screen
-                    if toggle_hit:
-                        continue
+                # If a toggle happened → no view switching
+                if light_toggled:
+                    continue
 
                 # --------------------
-                # DEFAULT: DOUBLE-TAP SWITCH VIEW
+                # DOUBLE TAP LOGIC (GLOBAL)
                 # --------------------
                 if now_ticks - last_tap_time <= DOUBLE_TAP_TIME:
                     tap_count += 1
@@ -744,6 +752,7 @@ while True:
                     current_view = (current_view + 1) % NUM_VIEWS
                     tap_count = 0
                     force_refresh = True
+
 
         
     # ---- Backlight scheduling / timeout with override ----
