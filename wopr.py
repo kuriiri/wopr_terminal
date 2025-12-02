@@ -738,6 +738,7 @@ while True:
                         
                         # DO NOT allow view change on this tap
                         tap_count = 0
+                        last_activity = now_ticks
                         continue
 
 
