@@ -737,7 +737,7 @@ while True:
                         light_toggled = True
                         break
 
-                if light_toggled # DO NOT allow view change on this tap
+                if light_toggled:
                     tap_count = 0
                     continue
 
