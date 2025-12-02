@@ -708,7 +708,7 @@ while True:
             last_tap_time = now_ticks
 
             if tap_count >= 2:
-                current_view = (current_view + 1) % TOTAL_VIEWS
+                current_view = (current_view + 1) % NUM_VIEWS
                 tap_count = 0
                 force_refresh = True
                 continue
