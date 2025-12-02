@@ -551,18 +551,13 @@ def draw_lights_view():
         color = GREEN if state_str == "ON" else RED if available else YELLOW
 
         # Draw text
-        draw_text(name, 40, y, base_font, WHITE)
+        draw_text(name, 40, y, base_font, GREEN).upper()
 
         # Right-aligned ON/OFF text
         draw_text(state_str, 600, y, base_font, color)
 
         # Visual row area for debugging (optional)
         # pygame.draw.rect(screen, (0,50,0), (20, y-2, WIDTH-40, row_h), 1)
-
-    # Footer instruction
-    draw_text("TAP TO TOGGLE DEVICE STATE", 40,
-              start_y + len(lights) * row_h + 20,
-              small_font, YELLOW)
 
 
 # -------- BACKLIGHT / TIME WINDOW HELPERS --------
@@ -694,65 +689,62 @@ while True:
                 pygame.MOUSEBUTTONDOWN, {'pos': (mx, my), 'button': 1}
             ))
 
-        # -- Normal mouse / converted touch click --
-        if ev.type == pygame.MOUSEBUTTONDOWN:
-            now_ticks = pygame.time.get_ticks()
-            last_activity = now_ticks
+            # -- Normal mouse / converted touch click --
+            if ev.type == pygame.MOUSEBUTTONDOWN:
+                now_ticks = pygame.time.get_ticks()
+                last_activity = now_ticks
 
-        if current_view != VIEW_LIGHTS:  # normal screen switching behaviour
-            if now_ticks - last_tap_time <= DOUBLE_TAP_TIME:
-                tap_count += 1
-            else:
-                tap_count = 1
+                # --------------------
+                # LIGHT CONTROL VIEW
+                # --------------------
+                if current_view == VIEW_LIGHTS:
+                    with lock:
+                        lights = list(state.get("lights", []))
 
-            last_tap_time = now_ticks
+                    start_y = 140
+                    row_h  = 50
+                    toggle_hit = False  # detect toggles to block screen switch
 
-            if tap_count >= 2:
-                current_view = (current_view + 1) % NUM_VIEWS
-                tap_count = 0
-                force_refresh = True
-                continue
-
-        if current_view == VIEW_LIGHTS:
-            with lock:
-                lights = list(state.get("lights", []))
-
-            start_y = 140
-            row_h = 50
-            for i, (eid, _, _, available) in enumerate(lights):
-                y = start_y + i * row_h
-                if 20 <= mx <= WIDTH-20 and y <= my <= y + row_h:
-                    if available:
-                        from modules.lights import toggle_light, get_lights
-                        toggle_light(cfg.get("homeassistant_url"),
+                    for i, (eid, _, _, available) in enumerate(lights):
+                        y = start_y + i * row_h
+                        if 20 <= mx <= WIDTH - 20 and y <= my <= y + row_h:
+                            toggle_hit = True
+                            if available:
+                                from modules.lights import toggle_light, get_lights
+                                toggle_light(
+                                    cfg.get("homeassistant_url"),
                                     cfg.get("ha_token"),
-                                    eid)
+                                    eid
+                                )
+                                with lock:
+                                    state["lights"] = get_lights(
+                                        cfg.get("homeassistant_url"),
+                                        cfg.get("ha_token"),
+                                        cfg.get("ha_lights", []),
+                                        cfg.get("ha_light_names", {})
+                                    )
+                                force_refresh = True
+                            break
 
-                        # refresh immediately
-                        with lock:
-                            state["lights"] = get_lights(
-                                cfg.get("homeassistant_url"),
-                                cfg.get("ha_token"),
-                                cfg.get("ha_lights", []),
-                                cfg.get("ha_light_names", {})
-                            )
-                        force_refresh = True
-                    last_activity = now_ticks
-                    break
+                    # If tap was meant for lights → do NOT switch screen
+                    if toggle_hit:
+                        continue
 
-            if not backlight_on or in_greeting:
-                continue  # ignore toggle while waking / greeting
+                # --------------------
+                # DEFAULT: DOUBLE-TAP SWITCH VIEW
+                # --------------------
+                if now_ticks - last_tap_time <= DOUBLE_TAP_TIME:
+                    tap_count += 1
+                else:
+                    tap_count = 1
 
-            # double-tap for switching screens
-            if now_ticks - last_tap_time <= DOUBLE_TAP_TIME:
-                tap_count += 1
-            else:
-                tap_count = 1
+                last_tap_time = now_ticks
 
-            last_tap_time = now_ticks
-            if tap_count >= 2:
-                current_view = (current_view + 1) % NUM_VIEWS  # HSL, WX, ELEC, DEP, ARR, HOMEASSISTANT
-                tap_count = 0
+                if tap_count >= 2:
+                    current_view = (current_view + 1) % NUM_VIEWS
+                    tap_count = 0
+                    force_refresh = True
+
         
     # ---- Backlight scheduling / timeout with override ----
     idle_ms = now_ticks - last_activity
