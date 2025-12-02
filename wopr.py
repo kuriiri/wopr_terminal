@@ -734,6 +734,8 @@ while True:
                                 )
                             force_refresh = True
 
+                            light_toggled = True
+                        
                         # DO NOT allow view change on this tap
                         tap_count = 0
                         continue
