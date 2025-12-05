@@ -6,7 +6,17 @@
   "hsl_stop_1": "HSL:1234567",
   "hsl_stop_1_desc": "BUSES TO THE CITY",
   "hsl_stop_2": "HSL:1234567",
-  "hsl_stop_2_desc": "BUSES TO THE AIRPORT", 
+  "hsl_stop_2_desc": "BUSES TO THE AIRPORT",
+  "hsl_stop_settings": {
+    "stop_1": {
+        "too_late": 4,
+        "start_running": 6
+    },
+    "stop_2": {
+        "too_late": 2,
+        "start_running": 4
+    }
+},
   "weather_interval_sec": 300,
   "hsl_interval_sec": 20,
   "hsl_interval_off_sec": 40,

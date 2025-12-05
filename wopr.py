@@ -765,6 +765,9 @@ while True:
         #   HSL BUS VIEW (table)
         # =====================
         stop1_desc = cfg.get("hsl_stop_1_desc", "").upper()
+        settings = cfg.get("hsl_stop_settings", {}).get("stop_1", {})
+        too_late = int(settings.get("too_late", 0))
+        run_at = int(settings.get("start_running", 5))
         draw_text(stop1_desc, 20, 70, big_font)
         draw_text("TIME", 20, 100, base_font, GREEN)
         draw_text("ROUTE", 120, 100, base_font, GREEN)
@@ -789,7 +792,10 @@ while True:
                         continue
                     t, route, mins, dest, stat = row
 
-                    if stat == "RUN":
+                    if mins < too_late:
+                        continue   # skip this bus entirely (too late)
+
+                    if mins < run_at:
                         color = RED
                         stat_txt = "RUN!!!"
                     elif stat == "DEL":
@@ -810,6 +816,9 @@ while True:
         # move down for airport direction
         y += 20
         stop2_desc = cfg.get("hsl_stop_2_desc", "").upper()
+        settings = cfg.get("hsl_stop_settings", {}).get("stop_2", {})
+        too_late = int(settings.get("too_late", 0))
+        run_at = int(settings.get("start_running", 5))
         draw_text(stop2_desc, 20, y, big_font, GREEN)
         y += 30
         draw_text("TIME", 20, y, base_font, GREEN)
@@ -834,7 +843,10 @@ while True:
                         continue
                     t, route, mins, dest, stat = row
 
-                    if stat == "RUN":
+                    if mins < too_late:
+                        continue   # skip this bus entirely (too late)
+
+                    if mins < run_at:
                         color = RED
                         stat_txt = "RUN!!!"
                     elif stat == "DEL":
